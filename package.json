@@ -1,0 +1,51 @@
+{
+  "name": "@prunaai/ai-provider",
+  "version": "0.1.0",
+  "description": "Vercel AI SDK custom provider for Pruna AI — image generation and image editing",
+  "keywords": [
+    "ai",
+    "vercel-ai-sdk",
+    "pruna",
+    "image-generation",
+    "image-editing"
+  ],
+  "homepage": "https://github.com/PrunaAI/ai-provider",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/PrunaAI/ai-provider.git"
+  },
+  "license": "MIT",
+  "main": "./dist/index.js",
+  "module": "./dist/index.mjs",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.mjs",
+      "require": "./dist/index.js"
+    }
+  },
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "build": "tsup src/index.ts --format cjs,esm --dts",
+    "dev": "tsup src/index.ts --format cjs,esm --dts --watch",
+    "typecheck": "tsc --noEmit",
+    "lint": "eslint src --ext .ts",
+    "test": "vitest run",
+    "prepublishOnly": "npm run build && npm run typecheck"
+  },
+  "peerDependencies": {
+    "@ai-sdk/provider": "^1.0.0",
+    "@ai-sdk/provider-utils": "^2.0.0"
+  },
+  "devDependencies": {
+    "@ai-sdk/provider": "^1.0.0",
+    "@ai-sdk/provider-utils": "^2.0.0",
+    "@types/node": "^20.0.0",
+    "tsup": "^8.0.0",
+    "typescript": "^5.0.0",
+    "vitest": "^1.0.0"
+  }
+}
