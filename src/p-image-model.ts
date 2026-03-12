@@ -3,7 +3,7 @@ import {
   ImageModelV1CallOptions,
   ImageModelV1CallWarning,
 } from '@ai-sdk/provider';
-import { FetchFunction } from '@ai-sdk/provider-utils';
+import { FetchFunction, loadApiKey } from '@ai-sdk/provider-utils';
 
 // ──────────────────────────────────────────────
 // Model ID type
@@ -109,7 +109,7 @@ export interface PImageCallOptions {
   lora_weights?: string;
   /**
    * LoRA influence scale (−1 to 3).
-   * @default 0.5 for p-image-lora, 1 for p-image-edit-lora
+   * @default 1
    */
   lora_scale?: number;
   /** HuggingFace API token for private LoRA repos. */
@@ -435,7 +435,7 @@ export class PImageModel implements ImageModelV1 {
       const response = await fetchFn(
         `${this.config.baseURL}/v1/predictions/status/${predictionId}`,
         {
-          headers: { ...this.config.headers(), Model: this.modelId },
+          headers: this.config.headers(),
           signal: abortSignal,
         },
       );
@@ -609,7 +609,11 @@ export function createPImage(
   const pollTimeoutMillis = options.pollTimeoutMillis ?? 60000;
 
   const getHeaders = (): Record<string, string> => ({
-    apikey: options.apiKey ?? process.env.PRUNA_API_KEY ?? '',
+    apikey: loadApiKey({
+      apiKey: options.apiKey,
+      environmentVariableName: 'PRUNA_API_KEY',
+      description: 'Pruna AI API key',
+    }),
     ...options.headers,
   });
 

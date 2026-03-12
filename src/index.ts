@@ -1,3 +1,5 @@
+export { PRUNA_AI_PROVIDER_VERSION } from './version';
+
 export {
   PImageModel,
   createPImage,
