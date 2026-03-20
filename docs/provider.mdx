@@ -1,0 +1,264 @@
+---
+title: Pruna AI
+description: Learn how to use Pruna AI image models with the Vercel AI SDK.
+---
+
+# Pruna AI Provider
+
+[Pruna AI](https://pruna.ai) offers fast, efficient image generation and editing models optimized for speed and quality. The Pruna AI provider for the Vercel AI SDK supports image generation, image editing, and LoRA variants through a unified interface.
+
+## Setup
+
+The Pruna AI provider is available via the `@prunaai/ai-sdk-provider` module. You can install it with:
+
+<Tabs items={['pnpm', 'npm', 'yarn', 'bun']}>
+  <Tab>
+    <Snippet text="pnpm add @prunaai/ai-sdk-provider" dark />
+  </Tab>
+  <Tab>
+    <Snippet text="npm install @prunaai/ai-sdk-provider" dark />
+  </Tab>
+  <Tab>
+    <Snippet text="yarn add @prunaai/ai-sdk-provider" dark />
+  </Tab>
+  <Tab>
+    <Snippet text="bun add @prunaai/ai-sdk-provider" dark />
+  </Tab>
+</Tabs>
+
+Get your API key from the [Pruna AI dashboard](https://dashboard.pruna.ai) and set it as an environment variable:
+
+```bash
+export PRUNA_API_KEY=your_api_key_here
+```
+
+## Provider Instance
+
+You can import the default provider instance `pImage` from `@prunaai/ai-sdk-provider`:
+
+```ts
+import { pImage } from '@prunaai/ai-sdk-provider';
+```
+
+If you need a customized setup, you can import `createPImage` from `@prunaai/ai-sdk-provider` and create a provider instance with your settings:
+
+```ts
+import { createPImage } from '@prunaai/ai-sdk-provider';
+
+const pImage = createPImage({
+  apiKey: 'your_api_key', // defaults to PRUNA_API_KEY env var
+  baseURL: 'https://api.pruna.ai', // optional
+  headers: { 'X-Custom-Header': 'value' }, // optional
+  pollIntervalMillis: 1000, // optional — polling interval (default: 1000ms)
+  pollTimeoutMillis: 60000, // optional — polling timeout (default: 60s)
+});
+```
+
+You can use the following optional settings to customize the Pruna AI provider instance:
+
+- **apiKey** _string_
+  API key for authentication. Defaults to the `PRUNA_API_KEY` environment variable.
+
+- **baseURL** _string_
+  Custom API base URL. The default is `https://api.pruna.ai`.
+
+- **headers** _Record<string, string>_
+  Custom headers to include in all requests.
+
+- **fetch** _(input: RequestInfo, init?: RequestInit) => Promise<Response>_
+  Custom [fetch](https://developer.mozilla.org/en-US/docs/Web/API/fetch) implementation.
+
+- **pollIntervalMillis** _number_
+  Interval between polling attempts for async predictions. Default: 1000ms.
+
+- **pollTimeoutMillis** _number_
+  Maximum time to wait for async predictions. Default: 60000ms (60 seconds).
+
+## Image Models
+
+You can create Pruna AI image models using the `.image()` factory method or by calling the provider directly.
+For more on image generation with the AI SDK, see [generateImage()](/docs/reference/ai-sdk-core/generate-image).
+
+### Supported Models
+
+| Model | Type | Description |
+|---|---|---|
+| `p-image` | Generation | Pruna's flagship text-to-image model with 2-stage refinement |
+| `p-image-lora` | Generation | p-image with custom LoRA weights support |
+| `p-image-edit` | Editing | Edit and compose 1–5 reference images with text instructions |
+| `p-image-edit-lora` | Editing | p-image-edit with custom LoRA weights support |
+
+<Note>
+  Pruna AI also offers video generation models (p-video, wan-i2v, wan-t2v, vace)
+  and model training models (p-image-trainer, p-image-edit-trainer). The Vercel
+  AI SDK does not currently provide interfaces for video or training — use the
+  [Pruna AI API](https://docs.api.pruna.ai) directly for those capabilities.
+</Note>
+
+## Image Generation
+
+### Basic Usage (p-image)
+
+```ts
+import { generateImage } from 'ai';
+import { pImage } from '@prunaai/ai-sdk-provider';
+
+const { image } = await generateImage({
+  model: pImage('p-image'),
+  prompt: 'A serene mountain lake at dawn, photorealistic, 4k',
+  size: '1024x1024',
+  seed: 42, // optional — for reproducible outputs
+});
+
+// image.base64 — base64-encoded image data
+// image.uint8Array — Uint8Array binary data
+```
+
+### Generation Options
+
+```ts
+const { image } = await generateImage({
+  model: pImage('p-image'),
+  prompt: 'A fox in a snowy forest',
+  providerOptions: {
+    pimage: {
+      aspect_ratio: '3:2', // '1:1' | '16:9' | '9:16' | '4:3' | '3:4' | '3:2' | '2:3' | 'custom'
+      width: 512, // optional — sets aspect_ratio to 'custom'
+      height: 768, // optional — sets aspect_ratio to 'custom'
+      prompt_upsampling: true, // expand the prompt with an LLM before generation
+      disable_safety_checker: false,
+    },
+  },
+});
+```
+
+## Image Generation with LoRA
+
+### Basic Usage (p-image-lora)
+
+```ts
+import { generateImage } from 'ai';
+import { pImage } from '@prunaai/ai-sdk-provider';
+
+const { image } = await generateImage({
+  model: pImage('p-image-lora'),
+  prompt: 'A portrait in the style of my fine-tuned model',
+  providerOptions: {
+    pimage: {
+      lora_weights: 'https://huggingface.co/your-org/your-lora',
+      lora_scale: 0.8, // −1 to 3, default 1
+      hf_api_token: '...', // only needed for private HF repos
+    },
+  },
+});
+```
+
+## Image Editing
+
+Input images are passed via `prompt.images`. They can be URL strings or raw buffers (`Uint8Array` / `ArrayBuffer`) — the provider automatically uploads raw buffers.
+
+<Note>
+  The `prompt` parameter normally expects a string, but for edit models you pass
+  an object with `{ text, images }`. This requires a type assertion in TypeScript
+  codebases: `prompt: { text: '...', images: [...] } as any`
+</Note>
+
+### Basic Image Editing (p-image-edit)
+
+```ts
+import { generateImage } from 'ai';
+import { pImage } from '@prunaai/ai-sdk-provider';
+import * as fs from 'node:fs';
+
+const sourceImage = fs.readFileSync('photo.jpg'); // Buffer / Uint8Array
+
+const { image } = await generateImage({
+  model: pImage('p-image-edit'),
+  prompt: {
+    text: 'Transform into a watercolour painting with warm tones',
+    images: [sourceImage], // 1–5 images; raw buffers are uploaded automatically
+  } as any,
+});
+
+fs.writeFileSync('edited.png', image.uint8Array);
+```
+
+### Edit Options
+
+```ts
+const { image } = await generateImage({
+  model: pImage('p-image-edit'),
+  prompt: { text: 'Make the sky dramatic and stormy', images: [sourceImage] } as any,
+  providerOptions: {
+    pimage: {
+      edit_aspect_ratio: 'match_input_image', // default
+      // 'match_input_image' | '1:1' | '16:9' | '9:16' | '4:3' | '3:4' | '3:2' | '2:3'
+      turbo: true, // faster generation; disable for complex tasks
+      disable_safety_checker: false,
+    },
+  },
+});
+```
+
+## Image Editing with LoRA
+
+### Basic Usage (p-image-edit-lora)
+
+```ts
+import { generateImage } from 'ai';
+import { pImage } from '@prunaai/ai-sdk-provider';
+
+const { image } = await generateImage({
+  model: pImage('p-image-edit-lora'),
+  prompt: {
+    text: 'Apply my custom style to image 1',
+    images: [sourceImage],
+  } as any,
+  providerOptions: {
+    pimage: {
+      lora_weights: 'https://huggingface.co/your-org/your-lora',
+      lora_scale: 1.0, // −1 to 3, default 1
+      hf_api_token: '...',
+    },
+  },
+});
+```
+
+## Full Provider Options Reference
+
+| Option | Models | Type | Default | Description |
+|---|---|---|---|---|
+| `aspect_ratio` | generation | string | `'16:9'` | Output aspect ratio. Auto-set to `'custom'` when `size` or `width`/`height` is used. |
+| `width` | generation | number | — | Output width in pixels (256–1440, multiple of 16). Sets `aspect_ratio` to `'custom'`. |
+| `height` | generation | number | — | Output height in pixels (256–1440, multiple of 16). Sets `aspect_ratio` to `'custom'`. |
+| `prompt_upsampling` | generation | boolean | `false` | Expand the prompt with an LLM before generation. |
+| `edit_aspect_ratio` | editing | string | `'match_input_image'` | Output aspect ratio for edit models. |
+| `turbo` | editing | boolean | `true` | Faster generation. Disable for complex editing tasks. |
+| `lora_weights` | lora | string | — | HuggingFace URL for LoRA weights. Required for lora models. |
+| `lora_scale` | lora | number | `1` | LoRA influence scale (−1 to 3). |
+| `hf_api_token` | lora | string | — | HuggingFace token for private LoRA repos. |
+| `disable_safety_checker` | all | boolean | `false` | Disable the safety filter. |
+
+Top-level `generateImage()` parameters also supported:
+
+| Parameter | Description |
+|---|---|
+| `size` | `'{width}x{height}'` string — sets `aspect_ratio` to `'custom'` automatically |
+| `aspectRatio` | `'{w}:{h}'` string — used when no `providerOptions.pimage.aspect_ratio` is set |
+| `seed` | Integer seed for reproducible outputs |
+| `n` | Number of images to generate (SDK batches calls automatically) |
+
+## API Reference
+
+This provider implements the [Pruna AI API v0.3.0](https://docs.api.pruna.ai).
+
+**Supported endpoints:**
+
+- `POST /v1/predictions` — Submit image generation or editing predictions
+- `GET /v1/predictions/status/{id}` — Poll async prediction status
+- `POST /v1/files` — Upload raw image buffers for editing
+
+For complete API documentation, authentication, rate limits, and advanced features, see:
+
+- [Pruna API Docs](https://docs.api.pruna.ai)
+- [Quickstart Guide](https://docs.api.pruna.ai/guides/quickstart)
