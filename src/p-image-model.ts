@@ -109,7 +109,7 @@ export interface PImageCallOptions {
   lora_weights?: string;
   /**
    * LoRA influence scale (−1 to 3).
-   * @default 0.5 (generation), 1.0 (editing)
+   * @default 1
    */
   lora_scale?: number;
   /** HuggingFace API token for private LoRA repos. */

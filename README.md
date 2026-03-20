@@ -93,7 +93,7 @@ const { image } = await generateImage({
   providerOptions: {
     pimage: {
       lora_weights: 'huggingface.co/your-org/your-lora',
-      lora_scale: 0.8,      // −1 to 3, default 0.5
+      lora_scale: 0.8,      // −1 to 3, default 1
       hf_api_token: '...',  // only needed for private HF repos
     },
   },
@@ -159,11 +159,11 @@ const { image } = await generateImage({
   prompt: {
     text: 'Apply my custom style to image 1',
     images: [sourceImage],
-  },
+  } as any,
   providerOptions: {
     pimage: {
       lora_weights: 'huggingface.co/your-org/your-lora',
-      lora_scale: 1.0,     // default 1 for edit-lora
+      lora_scale: 1.0,     // −1 to 3, default 1
       hf_api_token: '...',
     },
   },
@@ -196,7 +196,7 @@ const { image } = await generateImage({
 | `edit_aspect_ratio` | editing | string | `'match_input_image'` | Output aspect ratio for edit models. |
 | `turbo` | editing | boolean | `true` | Faster generation. Disable for complex editing tasks. |
 | `lora_weights` | lora | string | — | HuggingFace URL for LoRA weights. Required for lora models. |
-| `lora_scale` | lora | number | `0.5` (gen) / `1.0` (edit) | LoRA influence scale (−1 to 3). Only sent if explicitly provided. |
+| `lora_scale` | lora | number | `1` | LoRA influence scale (−1 to 3). Only sent if explicitly provided. |
 | `hf_api_token` | lora | string | — | HuggingFace token for private LoRA repos. |
 | `disable_safety_checker` | all | boolean | `false` | Disable the safety filter. |
 
