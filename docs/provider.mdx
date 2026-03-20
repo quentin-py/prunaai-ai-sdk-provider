@@ -79,7 +79,7 @@ You can use the following optional settings to customize the Pruna AI provider i
 You can create Pruna AI image models using the `.image()` factory method or by calling the provider directly.
 For more on image generation with the AI SDK, see [generateImage()](/docs/reference/ai-sdk-core/generate-image).
 
-### Supported Models
+### Supported Image Models
 
 | Model | Type | Description |
 |---|---|---|
@@ -88,10 +88,28 @@ For more on image generation with the AI SDK, see [generateImage()](/docs/refere
 | `p-image-edit` | Editing | Edit and compose 1–5 reference images with text instructions |
 | `p-image-edit-lora` | Editing | p-image-edit with custom LoRA weights support |
 
+## Video Models (Experimental)
+
 <Note>
-  Pruna AI also offers video generation models (p-video, wan-i2v, wan-t2v, vace)
-  and model training models (p-image-trainer, p-image-edit-trainer). The Vercel
-  AI SDK does not currently provide interfaces for video or training — use the
+  Video generation via `experimental_generateVideo` is currently experimental
+  and may change in future versions. Use with caution in production.
+</Note>
+
+You can create Pruna AI video models using the `.video()` factory method.
+For more on video generation with the AI SDK, see [experimental_generateVideo()](/docs/reference/ai-sdk-core/generate-video).
+
+### Supported Video Models
+
+| Model | Type | Description |
+|---|---|---|
+| `p-video` | Text-to-Video | Pruna's text-to-video model with audio synthesis |
+| `wan-i2v` | Image-to-Video | Transform images into dynamic videos |
+| `wan-t2v` | Text-to-Video | High-quality text-to-video generation |
+| `vace` | Video Processing | Advanced video composition and effects |
+
+<Note>
+  Pruna AI also offers model training models (p-image-trainer, p-image-edit-trainer).
+  The Vercel AI SDK does not currently provide an interface for training — use the
   [Pruna AI API](https://docs.api.pruna.ai) directly for those capabilities.
 </Note>
 
@@ -219,6 +237,58 @@ const { image } = await generateImage({
       lora_weights: 'https://huggingface.co/your-org/your-lora',
       lora_scale: 1.0, // −1 to 3, default 1
       hf_api_token: '...',
+    },
+  },
+});
+```
+
+## Video Generation
+
+### Basic Text-to-Video (p-video)
+
+```ts
+import { experimental_generateVideo } from 'ai';
+import { pVideo } from '@prunaai/ai-sdk-provider';
+
+const { videos } = await experimental_generateVideo({
+  model: pVideo('p-video'),
+  prompt: 'A serene mountain landscape with flowing water, cinematic quality, 4k',
+});
+
+// videos[0] — base64-encoded video data
+```
+
+### Image-to-Video (wan-i2v)
+
+```ts
+import { experimental_generateVideo } from 'ai';
+import { pVideo } from '@prunaai/ai-sdk-provider';
+
+const { videos } = await experimental_generateVideo({
+  model: pVideo('wan-i2v'),
+  prompt: {
+    image: 'https://example.com/image.jpg',
+    text: 'The scene transitions with gentle camera movement',
+  },
+});
+```
+
+### Video Generation Options
+
+```ts
+const { videos } = await experimental_generateVideo({
+  model: pVideo('p-video'),
+  prompt: 'A cinematic landscape',
+  providerOptions: {
+    pvideo: {
+      resolution: '720p', // '480p' | '720p'
+      frames_per_second: 24, // Number of fps
+      num_frames: 120, // Total frames to generate
+      aspect_ratio: '16:9', // '16:9' | '9:16' | '1:1'
+      save_audio: true, // Generate audio (p-video only)
+      prompt_upsampling: true, // Expand prompt with LLM (p-video only)
+      draft: false, // Use draft mode for faster generation
+      speed_mode: 'Lightly Juiced', // Generation speed preset
     },
   },
 });

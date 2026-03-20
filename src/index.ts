@@ -13,3 +13,17 @@ export type {
   PImageModelSettings,
   PImageCallOptions,
 } from './p-image-model';
+
+export {
+  PVideoModel,
+  createPVideo,
+  pVideo,
+} from './p-video-model';
+
+export type {
+  PVideoModelId,
+  PVideoProvider,
+  PVideoProviderSettings,
+  PVideoModelSettings,
+  PVideoCallOptions,
+} from './p-video-model';
