@@ -106,6 +106,11 @@ const { image } = await generateImage({
 
 Input images are passed via `prompt.images`. They must be URL strings or raw buffers (`Uint8Array` / `ArrayBuffer`) — the provider automatically uploads raw buffers to Pruna before submitting the request.
 
+> **Note:** The `prompt` parameter normally expects a string, but for edit models you pass an object with `{ text, images }`. This requires a type assertion in strict TypeScript codebases:
+> ```ts
+> prompt: { text: '...', images: [...] } as any
+> ```
+
 ```ts
 import { generateImage } from 'ai';
 import { pImage } from '@prunaai/ai-sdk-provider';
@@ -118,7 +123,7 @@ const { image } = await generateImage({
   prompt: {
     text: 'Transform into a watercolour painting with warm tones',
     images: [sourceImage], // 1–5 images; raw buffers are uploaded automatically
-  },
+  } as any,
 });
 
 fs.writeFileSync('edited.png', image.uint8Array);
@@ -191,7 +196,7 @@ const { image } = await generateImage({
 | `edit_aspect_ratio` | editing | string | `'match_input_image'` | Output aspect ratio for edit models. |
 | `turbo` | editing | boolean | `true` | Faster generation. Disable for complex editing tasks. |
 | `lora_weights` | lora | string | — | HuggingFace URL for LoRA weights. Required for lora models. |
-| `lora_scale` | lora | number | `0.5` / `1.0` | LoRA influence scale (−1 to 3). |
+| `lora_scale` | lora | number | `0.5` (gen) / `1.0` (edit) | LoRA influence scale (−1 to 3). Only sent if explicitly provided. |
 | `hf_api_token` | lora | string | — | HuggingFace token for private LoRA repos. |
 | `disable_safety_checker` | all | boolean | `false` | Disable the safety filter. |
 

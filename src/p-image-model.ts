@@ -109,7 +109,7 @@ export interface PImageCallOptions {
   lora_weights?: string;
   /**
    * LoRA influence scale (−1 to 3).
-   * @default 1
+   * @default 0.5 (generation), 1.0 (editing)
    */
   lora_scale?: number;
   /** HuggingFace API token for private LoRA repos. */
@@ -264,7 +264,7 @@ export class PImageModel implements ImageModelV1 {
     mimeType: string,
   ): Promise<string> {
     const formData = new FormData();
-    const blob = new Blob([imageBuffer], { type: mimeType });
+    const blob = new Blob([imageBuffer as BlobPart], { type: mimeType });
     formData.append('content', blob, `upload.${mimeType.split('/')[1] ?? 'png'}`);
 
     const fetchFn = this.config.fetch ?? fetch;
@@ -474,42 +474,53 @@ export class PImageModel implements ImageModelV1 {
   // ── Main doGenerate ────────────────────────
 
   async doGenerate(options: ImageModelV1CallOptions): Promise<{
-    images: Array<{ base64: string }>;
+    images: Array<string>;
     warnings: ImageModelV1CallWarning[];
+    response: { timestamp: Date; modelId: string; headers: Record<string, string> | undefined };
   }> {
     const warnings: ImageModelV1CallWarning[] = [];
     const po = (options.providerOptions?.pimage ?? {}) as PImageCallOptions;
 
     // Warn on model/param mismatches
-    if (
-      !this.isEdit &&
-      (po.turbo !== undefined || po.edit_aspect_ratio !== undefined)
-    ) {
+    if (!this.isEdit && po.turbo !== undefined) {
       warnings.push({
-        type: 'unsupported-setting',
-        setting: 'turbo / edit_aspect_ratio',
-        details: `${this.modelId} is a generation model — turbo and edit_aspect_ratio are ignored`,
+        type: 'other',
+        message: `${this.modelId} is a generation model — turbo parameter is ignored`,
       });
     }
 
-    if (
-      this.isEdit &&
-      (po.width !== undefined ||
-        po.height !== undefined ||
-        po.prompt_upsampling !== undefined)
-    ) {
+    if (!this.isEdit && po.edit_aspect_ratio !== undefined) {
       warnings.push({
-        type: 'unsupported-setting',
-        setting: 'width / height / prompt_upsampling',
-        details: `${this.modelId} is an edit model — width, height, and prompt_upsampling are ignored`,
+        type: 'other',
+        message: `${this.modelId} is a generation model — edit_aspect_ratio parameter is ignored`,
+      });
+    }
+
+    if (this.isEdit && po.width !== undefined) {
+      warnings.push({
+        type: 'other',
+        message: `${this.modelId} is an edit model — width parameter is ignored`,
+      });
+    }
+
+    if (this.isEdit && po.height !== undefined) {
+      warnings.push({
+        type: 'other',
+        message: `${this.modelId} is an edit model — height parameter is ignored`,
+      });
+    }
+
+    if (this.isEdit && po.prompt_upsampling !== undefined) {
+      warnings.push({
+        type: 'other',
+        message: `${this.modelId} is an edit model — prompt_upsampling parameter is ignored`,
       });
     }
 
     if (this.isLora && !po.lora_weights) {
       warnings.push({
-        type: 'unsupported-setting',
-        setting: 'lora_weights',
-        details: `${this.modelId} requires lora_weights in providerOptions.pimage`,
+        type: 'other',
+        message: `${this.modelId} requires lora_weights in providerOptions.pimage`,
       });
     }
 
@@ -526,9 +537,8 @@ export class PImageModel implements ImageModelV1 {
 
     if (this.isEdit && resolvedImages.length === 0) {
       warnings.push({
-        type: 'unsupported-setting',
-        setting: 'prompt.images',
-        details: `${this.modelId} is an edit model but no input images were provided`,
+        type: 'other',
+        message: `${this.modelId} is an edit model but no input images were provided`,
       });
     }
 
@@ -536,7 +546,7 @@ export class PImageModel implements ImageModelV1 {
     const fetchFn = this.config.fetch ?? fetch;
 
     // Submit prediction — Try-Sync: true asks Pruna to wait up to 60s for completion
-    const response = await fetchFn(`${this.config.baseURL}/v1/predictions`, {
+    const predictionResponse = await fetchFn(`${this.config.baseURL}/v1/predictions`, {
       method: 'POST',
       headers: {
         ...this.getRequestHeaders(),
@@ -546,12 +556,18 @@ export class PImageModel implements ImageModelV1 {
       signal: options.abortSignal,
     });
 
-    if (!response.ok) {
-      const text = await response.text();
-      throw new Error(`Prediction request failed (${response.status}): ${text}`);
+    if (!predictionResponse.ok) {
+      const text = await predictionResponse.text();
+      throw new Error(`Prediction request failed (${predictionResponse.status}): ${text}`);
     }
 
-    const json = await response.json();
+    // Capture response headers for telemetry
+    const responseHeaders: Record<string, string> = {};
+    predictionResponse.headers?.forEach((value, key) => {
+      responseHeaders[key] = value;
+    });
+
+    const json = await predictionResponse.json();
 
     let generationUrl: string;
 
@@ -583,11 +599,29 @@ export class PImageModel implements ImageModelV1 {
     }
 
     const buffer = await imgResponse.arrayBuffer();
-    const base64 = Buffer.from(buffer).toString('base64');
+    // Convert to base64 in a portable way (works in Node.js, Edge Runtime, browsers)
+    const bytes = new Uint8Array(buffer);
+    let base64: string;
+    if (typeof Buffer !== 'undefined') {
+      // Node.js
+      base64 = Buffer.from(bytes).toString('base64');
+    } else {
+      // Edge Runtime, browsers
+      let str = '';
+      for (let i = 0; i < bytes.length; i++) {
+        str += String.fromCharCode(bytes[i]);
+      }
+      base64 = btoa(str);
+    }
 
     return {
-      images: [{ base64 }],
+      images: [base64],
       warnings,
+      response: {
+        timestamp: new Date(),
+        modelId: this.modelId,
+        headers: Object.keys(responseHeaders).length > 0 ? responseHeaders : undefined,
+      },
     };
   }
 }
