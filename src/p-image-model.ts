@@ -122,6 +122,7 @@ export interface PImageCallOptions {
 
 // ──────────────────────────────────────────────
 // Internal API types — sourced from Pruna OpenAPI spec v0.3.0
+// Reference: https://docs.api.pruna.ai/
 // ──────────────────────────────────────────────
 
 /**

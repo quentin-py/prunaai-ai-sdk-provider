@@ -213,7 +213,16 @@ Top-level `generateImage()` parameters also supported:
 
 ## API reference
 
-Full API documentation: [docs.api.pruna.ai](https://docs.api.pruna.ai)
+This provider implements the [Pruna AI API v0.3.0](https://docs.api.pruna.ai).
+
+**Supported endpoints:**
+- `POST /v1/predictions` — Submit image generation or editing predictions
+- `GET /v1/predictions/status/{id}` — Poll async prediction status
+- `POST /v1/files` — Upload raw image buffers for editing
+
+For complete API documentation, authentication, rate limits, and advanced features, see:
+- [Pruna API Docs](https://docs.api.pruna.ai)
+- [Quickstart Guide](https://docs.api.pruna.ai/guides/quickstart)
 
 ---
 
