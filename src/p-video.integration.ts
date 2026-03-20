@@ -13,22 +13,21 @@ import {
 const RUN_INTEGRATION = !!TEST_API_KEY;
 
 describe.skipIf(!RUN_INTEGRATION)('Integration Tests — Pruna AI Video API (Experimental)', () => {
-  let videoModels: ModelEntry[];
   const provider = createPVideo({
     apiKey: TEST_API_KEY || '',
     baseURL: TEST_BASE_URL,
   });
 
+  const allModels = loadPrunaTreeModels();
+  const videoModels = allModels.filter(
+    (m) =>
+      m.modelId === 'p-video' ||
+      m.modelId === 'wan-i2v' ||
+      m.modelId === 'wan-t2v' ||
+      m.modelId === 'vace',
+  );
+
   beforeAll(() => {
-    const allModels = loadPrunaTreeModels();
-    // Filter to only video models
-    videoModels = allModels.filter(
-      (m) =>
-        m.modelId === 'p-video' ||
-        m.modelId === 'wan-i2v' ||
-        m.modelId === 'wan-t2v' ||
-        m.modelId === 'vace',
-    );
     console.log(`\n🎬 Found ${videoModels.length} video models in prunatree`);
     console.log(`Models: ${videoModels.map((m) => m.modelId).join(', ')}`);
   });

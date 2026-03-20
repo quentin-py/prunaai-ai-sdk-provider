@@ -14,14 +14,14 @@ import {
 const RUN_INTEGRATION = !!TEST_API_KEY;
 
 describe.skipIf(!RUN_INTEGRATION)('Integration Tests — Pruna AI API', () => {
-  let models: ModelEntry[];
   const provider = createPImage({
     apiKey: TEST_API_KEY || '',
     baseURL: TEST_BASE_URL,
   });
 
+  const models = loadPrunaTreeModels();
+
   beforeAll(() => {
-    models = loadPrunaTreeModels();
     console.log(`\n📦 Found ${models.length} p-image models in prunatree`);
     console.log(`Models: ${models.map((m) => m.modelId).join(', ')}`);
   });
