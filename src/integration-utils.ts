@@ -79,10 +79,10 @@ export function loadPrunaTreeModels(): ModelEntry[] {
     }
   }
 
-  // Build list of p-image models from defaults
+  // Build list of p-image models from defaults (exclude trainer models)
   const models: ModelEntry[] = [];
   for (const [modelId, defaultParams] of Object.entries(defaults)) {
-    if (modelId.startsWith('p-image') || modelId.startsWith('z-image')) {
+    if ((modelId.startsWith('p-image') || modelId.startsWith('z-image')) && !modelId.includes('-trainer')) {
       models.push({
         modelId,
         schema: schemas[modelId],
