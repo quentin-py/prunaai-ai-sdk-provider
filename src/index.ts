@@ -27,3 +27,17 @@ export type {
   PVideoModelSettings,
   PVideoCallOptions,
 } from './p-video-model';
+
+// Model registry types (auto-generated from prunatree)
+export type {
+  ImageModelId,
+  VideoModelId,
+  AnyModelId,
+  ModelConfig,
+} from './generated/model-registry';
+
+export {
+  IMAGE_MODEL_CONFIGS,
+  VIDEO_MODEL_CONFIGS,
+  MODEL_REGISTRY,
+} from './generated/model-registry';

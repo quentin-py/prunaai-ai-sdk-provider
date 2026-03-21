@@ -33,6 +33,7 @@
     "dev": "tsup src/index.ts --format cjs,esm --dts --watch",
     "typecheck": "tsc --noEmit",
     "lint": "eslint src --ext .ts",
+    "codegen": "node scripts/codegen.js",
     "test": "vitest run --config vitest.config.ts",
     "test:integration": "vitest run --config vitest.integration.config.ts",
     "prepublishOnly": "npm run build && npm run typecheck"

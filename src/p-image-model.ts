@@ -4,17 +4,14 @@ import {
   ImageModelV1CallWarning,
 } from '@ai-sdk/provider';
 import { FetchFunction, loadApiKey } from '@ai-sdk/provider-utils';
+import { IMAGE_MODEL_CONFIGS, type ImageModelId } from './generated/model-registry';
 
 // ──────────────────────────────────────────────
-// Model ID type
+// Model ID type — re-export from generated registry
 // ──────────────────────────────────────────────
 
-export type PImageModelId =
-  | 'p-image'
-  | 'p-image-lora'
-  | 'p-image-edit'
-  | 'p-image-edit-lora'
-  | (string & {}); // allow future model IDs without breaking types
+// Alias for backwards compatibility, re-exports the generated type
+export type PImageModelId = ImageModelId | (string & {});
 
 // ──────────────────────────────────────────────
 // Provider-level settings (passed to createPImage)
@@ -232,11 +229,18 @@ export class PImageModel implements ImageModelV1 {
   // ── Private helpers ────────────────────────
 
   private get isEdit(): boolean {
-    return this.modelId.includes('edit');
+    const config = IMAGE_MODEL_CONFIGS[this.modelId as ImageModelId];
+    return config?.requiresImage ?? this.modelId.includes('edit'); // fallback for unknown models
   }
 
   private get isLora(): boolean {
-    return this.modelId.includes('lora');
+    const config = IMAGE_MODEL_CONFIGS[this.modelId as ImageModelId];
+    return config?.supportsLora ?? this.modelId.includes('lora'); // fallback for unknown models
+  }
+
+  private get imageField(): 'image' | 'images' | null {
+    const config = IMAGE_MODEL_CONFIGS[this.modelId as ImageModelId];
+    return config?.imageField ?? null;
   }
 
   private getRequestHeaders(): Record<string, string> {
@@ -351,33 +355,45 @@ export class PImageModel implements ImageModelV1 {
       : {};
 
     if (this.isEdit) {
-      // ── Edit schema (p-image-edit, p-image-edit-lora) ─────────────
-      // Valid fields: prompt, seed, turbo, images, aspect_ratio,
-      //               disable_safety_checker, + lora fields for edit-lora
-      // INVALID (causes 400): width, height, prompt_upsampling
+      // ── Edit/Image model schema ──────────────────────────────────────
+      // Different edit models use different image field names:
+      // - p-image-edit: requires 'images' array
+      // - qwen-image-edit-plus: requires 'image' single URL
+      // - flux-dev-lora: optional 'image' single URL
 
       const aspectRatio =
         po.edit_aspect_ratio ??
         (options.aspectRatio as PImageCallOptions['edit_aspect_ratio']) ??
         'match_input_image';
 
+      const editInput: Record<string, any> = {
+        ...baseInput,
+        aspect_ratio: aspectRatio,
+        ...(po.turbo !== undefined && { turbo: po.turbo }),
+        ...loraFields,
+      };
+
+      // Add image(s) field based on model configuration
+      if (this.imageField === 'images') {
+        editInput.images = resolvedImages;
+      } else if (this.imageField === 'image' && resolvedImages.length > 0) {
+        editInput.image = resolvedImages[0]; // single image URL
+      } else if (!this.imageField && resolvedImages.length > 0) {
+        // Fallback for unknown models: treat as images array
+        editInput.images = resolvedImages;
+      }
+
       return {
-        input: {
-          ...baseInput,
-          aspect_ratio: aspectRatio,
-          images: resolvedImages,
-          ...(po.turbo !== undefined && { turbo: po.turbo }),
-          ...loraFields,
-        },
+        input: editInput,
       };
     } else {
-      // ── Generation schema (p-image, p-image-lora) ──────────────────
-      // Valid fields: prompt, seed, width, height, aspect_ratio,
-      //               prompt_upsampling, disable_safety_checker,
-      //               lora_weights, lora_scale, hf_api_token
-      // INVALID (causes 400): images, turbo
+      // ── Generation/Text-to-Image schema ──────────────────────────────
+      // Models: p-image, p-image-lora, flux-dev, wan-image-small, qwen-image, flux-dev-lora
+      // Some models support optional image field for img2img mode (qwen-image, flux-dev-lora)
+      // Valid fields vary by model; dimensions invalid for some models.
 
       // Derive dimensions: providerOptions > size string
+      // (only for models that support width/height)
       let width = po.width;
       let height = po.height;
 
@@ -389,7 +405,7 @@ export class PImageModel implements ImageModelV1 {
         }
       }
 
-      // aspect_ratio must be 'custom' when explicit dimensions are set
+      // aspect_ratio must be 'custom' when explicit dimensions are set (if supported)
       let aspectRatio: string =
         po.aspect_ratio ??
         (options.aspectRatio as string) ??
@@ -399,17 +415,25 @@ export class PImageModel implements ImageModelV1 {
         aspectRatio = 'custom';
       }
 
+      const generationInput: Record<string, any> = {
+        ...baseInput,
+        aspect_ratio: aspectRatio,
+        ...(width !== undefined && { width }),
+        ...(height !== undefined && { height }),
+        ...(po.prompt_upsampling !== undefined && {
+          prompt_upsampling: po.prompt_upsampling,
+        }),
+        ...loraFields,
+      };
+
+      // Add optional image field for models that support img2img
+      // (e.g., qwen-image, flux-dev-lora)
+      if (this.imageField === 'image' && resolvedImages.length > 0) {
+        generationInput.image = resolvedImages[0];
+      }
+
       return {
-        input: {
-          ...baseInput,
-          aspect_ratio: aspectRatio,
-          ...(width !== undefined && { width }),
-          ...(height !== undefined && { height }),
-          ...(po.prompt_upsampling !== undefined && {
-            prompt_upsampling: po.prompt_upsampling,
-          }),
-          ...loraFields,
-        },
+        input: generationInput,
       };
     }
   }

@@ -1,5 +1,6 @@
 import { describe, it, expect, beforeAll } from 'vitest';
 import { createPImage } from './p-image-model';
+import { IMAGE_MODEL_CONFIGS } from './generated/model-registry';
 import {
   TEST_API_KEY,
   TEST_BASE_URL,
@@ -19,10 +20,12 @@ describe.skipIf(!RUN_INTEGRATION)('Integration Tests — Pruna AI API', () => {
     baseURL: TEST_BASE_URL,
   });
 
-  const models = loadPrunaTreeModels();
+  const allModels = loadPrunaTreeModels();
+  // Filter to only image models (exclude video models)
+  const models = allModels.filter((m) => m.modelId in IMAGE_MODEL_CONFIGS);
 
   beforeAll(() => {
-    console.log(`\n📦 Found ${models.length} p-image models in prunatree`);
+    console.log(`\n📦 Found ${models.length} image models in prunatree`);
     console.log(`Models: ${models.map((m) => m.modelId).join(', ')}`);
   });
 

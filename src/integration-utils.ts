@@ -1,5 +1,6 @@
 import * as fs from 'node:fs';
 import * as path from 'node:path';
+import { MODEL_REGISTRY } from './generated/model-registry';
 
 export const TEST_API_KEY = process.env.PRUNA_API_KEY;
 export const TEST_BASE_URL = process.env.PRUNA_BASE_URL ?? 'https://api.pruna.ai';
@@ -124,7 +125,7 @@ export function isValidPng(base64: string): boolean {
 
 /**
  * Build valid doGenerate params for a given model
- * Injects test image URL for edit models, LoRA URL for LoRA models
+ * Uses model registry to determine what fields to inject (image, LoRA, etc.)
  */
 export function buildTestParams(modelId: string, defaults: Record<string, any>): Record<string, any> {
   const params: Record<string, any> = {
@@ -132,16 +133,27 @@ export function buildTestParams(modelId: string, defaults: Record<string, any>):
     n: 1,
   };
 
-  // For edit models, inject test image
-  if (modelId.includes('-edit')) {
-    params.prompt = {
-      text: TEST_PROMPT,
-      images: [TEST_IMAGE_URL],
-    };
+  const config = MODEL_REGISTRY[modelId as keyof typeof MODEL_REGISTRY];
+
+  // For models that require or support images, inject test image URL
+  if (config?.requiresImage || (config?.imageField && config.type.includes('image'))) {
+    if (config.imageField === 'images') {
+      // Array format for p-image-edit
+      params.prompt = {
+        text: TEST_PROMPT,
+        images: [TEST_IMAGE_URL],
+      };
+    } else if (config.imageField === 'image') {
+      // Single image for qwen-image-edit-plus, flux-dev-lora, qwen-image, etc.
+      params.prompt = {
+        text: TEST_PROMPT,
+        images: [TEST_IMAGE_URL], // Still wrapped in array for API consumption
+      };
+    }
   }
 
-  // For LoRA models, inject test LoRA URL
-  if (modelId.includes('-lora')) {
+  // For models that support LoRA, inject test LoRA URL
+  if (config?.supportsLora) {
     params.providerOptions = {
       pimage: {
         lora_weights: TEST_LORA_URL,
