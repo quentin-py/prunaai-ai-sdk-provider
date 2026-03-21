@@ -13,17 +13,26 @@ export const IMAGE_MODEL_CONFIGS = {
   'qwen-image-edit-plus': { type: 'image-edit', requiresImage: true, imageField: 'image', supportsLora: false },
   'p-image': { type: 'text-to-image', requiresImage: false, imageField: null, supportsLora: false },
   'p-image-edit': { type: 'image-edit', requiresImage: true, imageField: 'images', supportsLora: false },
+  'flux-2-klein-4b': { type: 'text-to-image', requiresImage: false, imageField: null, supportsLora: false },
+  'p-image-edit-lora': { type: 'text-to-image', requiresImage: false, imageField: null, supportsLora: true },
+  'p-image-lora': { type: 'text-to-image', requiresImage: false, imageField: null, supportsLora: true },
+  'p-image-pro': { type: 'text-to-image', requiresImage: false, imageField: null, supportsLora: false },
+  'qwen-image-fast': { type: 'text-to-image', requiresImage: false, imageField: null, supportsLora: false },
+  'z-image-turbo': { type: 'text-to-image', requiresImage: false, imageField: null, supportsLora: false },
+  'z-image-turbo-lora': { type: 'text-to-image', requiresImage: false, imageField: null, supportsLora: false },
+  'z-image-turbo-small': { type: 'text-to-image', requiresImage: false, imageField: null, supportsLora: false },
 } as const;
 
-export type ImageModelId = 'flux-dev' | 'flux-dev-lora' | 'wan-image-small' | 'qwen-image' | 'qwen-image-edit-plus' | 'p-image' | 'p-image-edit';
+export type ImageModelId = 'flux-dev' | 'flux-dev-lora' | 'wan-image-small' | 'qwen-image' | 'qwen-image-edit-plus' | 'p-image' | 'p-image-edit' | 'flux-2-klein-4b' | 'p-image-edit-lora' | 'p-image-lora' | 'p-image-pro' | 'qwen-image-fast' | 'z-image-turbo' | 'z-image-turbo-lora' | 'z-image-turbo-small';
 
 export const VIDEO_MODEL_CONFIGS = {
   'wan-i2v': { type: 'image-to-video', requiresImage: true, imageField: 'image', supportsLora: true },
   'wan-t2v': { type: 'text-to-video', requiresImage: false, imageField: null, supportsLora: true },
   'vace': { type: 'video-processing', requiresImage: false, imageField: null, supportsLora: false },
+  'p-video': { type: 'text-to-video', requiresImage: false, imageField: null, supportsLora: false },
 } as const;
 
-export type VideoModelId = 'wan-i2v' | 'wan-t2v' | 'vace';
+export type VideoModelId = 'wan-i2v' | 'wan-t2v' | 'vace' | 'p-video';
 
 // Combined registry for easy lookup
 export const MODEL_REGISTRY = {

@@ -16,10 +16,14 @@ const API_SPEC_PATH = path.join(
   PROJECT_ROOT,
   'prunatree/services/papi/app/openapi/schemas/P-API.json'
 );
+const DEFAULTS_PATH = path.join(
+  PROJECT_ROOT,
+  'prunatree/services/papi/app/domain/model_param_defaults.json'
+);
 const OUTPUT_PATH = path.join(PROJECT_ROOT, 'src/generated/model-registry.ts');
 
 // ────────────────────────────────────────────────────────────────────
-// Load and parse P-API.json
+// Load and parse P-API.json and model defaults
 // ────────────────────────────────────────────────────────────────────
 
 console.log(`📖 Reading P-API spec from: ${API_SPEC_PATH}`);
@@ -31,6 +35,13 @@ if (!fs.existsSync(API_SPEC_PATH)) {
 
 const apiSpec = JSON.parse(fs.readFileSync(API_SPEC_PATH, 'utf-8'));
 const schemas = apiSpec.components?.schemas || {};
+
+// Load model defaults
+let modelDefaults = {};
+if (fs.existsSync(DEFAULTS_PATH)) {
+  modelDefaults = JSON.parse(fs.readFileSync(DEFAULTS_PATH, 'utf-8'));
+  console.log(`📖 Found ${Object.keys(modelDefaults).length} models in defaults`);
+}
 
 // Find all models with an 'input' schema
 // Filter out non-model schemas (API responses, etc.)
@@ -58,7 +69,11 @@ console.log(`✅ Found ${Object.keys(modelSchemas).length} models with input sch
 const imageModels = {};
 const videoModels = {};
 
+// Process models from schema first
+const processedModels = new Set();
+
 for (const [modelId, schema] of Object.entries(modelSchemas)) {
+  processedModels.add(modelId);
   const required = schema.required || [];
   const properties = schema.properties || {};
 
@@ -122,6 +137,40 @@ for (const [modelId, schema] of Object.entries(modelSchemas)) {
   }
 
   console.log(`  ${modelId}: ${modelType} ${supportsLora ? '(LoRA)' : ''}`);
+}
+
+// Also include models from defaults that don't have explicit schemas
+// (e.g., p-video which is internal/not yet in public P-API)
+for (const [modelId, defaults] of Object.entries(modelDefaults)) {
+  if (processedModels.has(modelId)) continue;
+  if (modelId.includes('-trainer') || modelId.startsWith('_')) continue;
+
+  // Classify based on model name patterns and default fields
+  const hasVideoFields = 'duration' in defaults || 'fps' in defaults || 'resolution' in defaults;
+  const hasLora = Object.keys(defaults).some((k) => k.includes('lora'));
+
+  let modelType = 'text-to-image';
+  let requiresImage = false;
+  let imageField = null;
+
+  if (hasVideoFields) {
+    modelType = 'text-to-video'; // Default to text-to-video for video models
+    videoModels[modelId] = {
+      type: modelType,
+      requiresImage,
+      imageField,
+      supportsLora: hasLora,
+    };
+    console.log(`  ${modelId}: ${modelType} (no schema, inferred from defaults) ${hasLora ? '(LoRA)' : ''}`);
+  } else {
+    imageModels[modelId] = {
+      type: 'text-to-image',
+      requiresImage: false,
+      imageField: null,
+      supportsLora: hasLora,
+    };
+    console.log(`  ${modelId}: text-to-image (no schema, inferred from defaults) ${hasLora ? '(LoRA)' : ''}`);
+  }
 }
 
 console.log(`\n📦 Summary:`);
