@@ -6,7 +6,8 @@ export const TEST_BASE_URL = process.env.PRUNA_BASE_URL ?? 'https://api.pruna.ai
 
 // Public test fixtures (no user secrets needed beyond PRUNA_API_KEY)
 export const TEST_PROMPT = 'A serene mountain lake at dawn, photorealistic, 4k';
-export const TEST_IMAGE_URL = 'https://upload.wikimedia.org/wikipedia/commons/thumb/4/47/PNG_transparency_demonstration_1.png/280px-PNG_transparency_demonstration_1.png';
+// Using a simple image from a permissive CDN (Wikimedia blocks external requests)
+export const TEST_IMAGE_URL = 'https://images.pexels.com/photos/87651/earth-blue-planet-globe-planet-87651.jpeg';
 export const TEST_LORA_URL = 'https://huggingface.co/pruna-ai/test-lora';
 
 export interface ModelEntry {
@@ -79,10 +80,11 @@ export function loadPrunaTreeModels(): ModelEntry[] {
     }
   }
 
-  // Build list of p-image models from defaults (exclude trainer models)
+  // Build list of all Pruna models from defaults (exclude trainer models)
   const models: ModelEntry[] = [];
   for (const [modelId, defaultParams] of Object.entries(defaults)) {
-    if ((modelId.startsWith('p-image') || modelId.startsWith('z-image')) && !modelId.includes('-trainer')) {
+    // Include all models except trainers and internal ones
+    if (!modelId.includes('-trainer') && !modelId.startsWith('_')) {
       models.push({
         modelId,
         schema: schemas[modelId],
