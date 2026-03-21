@@ -1,7 +1,6 @@
 import {
-  VideoModelV1,
-  VideoModelV1CallOptions,
-  VideoModelV1CallWarning,
+  Experimental_VideoModelV3 as VideoModelV3,
+  Experimental_VideoModelV3CallOptions as VideoModelV3CallOptions,
 } from '@ai-sdk/provider';
 import { FetchFunction, loadApiKey } from '@ai-sdk/provider-utils';
 
@@ -107,8 +106,8 @@ export interface PVideoCallOptions {
 // Model implementation
 // ──────────────────────────────────────────────────────────────
 
-export class PVideoModel implements VideoModelV1 {
-  readonly specificationVersion = 'v1';
+export class PVideoModel implements VideoModelV3 {
+  readonly specificationVersion = 'v3';
   readonly provider = 'pvideo';
   readonly modelId: PVideoModelId;
   readonly maxVideosPerCall = 1;
@@ -143,12 +142,10 @@ export class PVideoModel implements VideoModelV1 {
     };
   }
 
-  async doGenerate(options: VideoModelV1CallOptions): Promise<{
+  async doGenerate(options: VideoModelV3CallOptions): Promise<{
     videos: Array<string>;
-    warnings: VideoModelV1CallWarning[];
     response: { timestamp: Date; modelId: string; headers?: Record<string, string> };
   }> {
-    const warnings: VideoModelV1CallWarning[] = [];
 
     // Build input parameters
     const input: Record<string, any> = {
@@ -208,7 +205,6 @@ export class PVideoModel implements VideoModelV1 {
 
       return {
         videos: [videoBase64],
-        warnings,
         response: {
           timestamp: new Date(),
           modelId: this.modelId,
@@ -267,7 +263,6 @@ export class PVideoModel implements VideoModelV1 {
 
     return {
       videos: [videoBase64],
-      warnings,
       response: {
         timestamp: new Date(),
         modelId: this.modelId,

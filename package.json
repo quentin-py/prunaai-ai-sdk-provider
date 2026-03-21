@@ -39,11 +39,11 @@
     "prepublishOnly": "npm run build && npm run typecheck"
   },
   "peerDependencies": {
-    "@ai-sdk/provider": "^1.0.0",
+    "@ai-sdk/provider": "^3.0.0",
     "@ai-sdk/provider-utils": "^2.0.0"
   },
   "devDependencies": {
-    "@ai-sdk/provider": "^1.0.0",
+    "@ai-sdk/provider": "^3.0.8",
     "@ai-sdk/provider-utils": "^2.0.0",
     "@types/node": "^20.0.0",
     "ai": "^3.0.0",
