@@ -115,11 +115,25 @@ for (const [modelId, schema] of Object.entries(modelSchemas)) {
     } else {
       modelType = 'text-to-video';
     }
+
+    // Extract field metadata for better test generation and docs
+    const fieldMetadata = {};
+    for (const [fieldName, fieldSchema] of Object.entries(properties)) {
+      fieldMetadata[fieldName] = {
+        description: fieldSchema.description,
+        type: fieldSchema.type,
+        default: fieldSchema.default,
+        enum: fieldSchema.enum,
+        example: fieldSchema.example,
+      };
+    }
+
     videoModels[modelId] = {
       type: modelType,
       requiresImage,
       imageField,
       supportsLora,
+      fields: fieldMetadata,
     };
   } else {
     // Image model
@@ -128,11 +142,25 @@ for (const [modelId, schema] of Object.entries(modelSchemas)) {
     } else {
       modelType = 'text-to-image';
     }
+
+    // Extract field metadata for better test generation and docs
+    const fieldMetadata = {};
+    for (const [fieldName, fieldSchema] of Object.entries(properties)) {
+      fieldMetadata[fieldName] = {
+        description: fieldSchema.description,
+        type: fieldSchema.type,
+        default: fieldSchema.default,
+        enum: fieldSchema.enum,
+        example: fieldSchema.example,
+      };
+    }
+
     imageModels[modelId] = {
       type: modelType,
       requiresImage,
       imageField,
       supportsLora,
+      fields: fieldMetadata,
     };
   }
 
@@ -181,8 +209,12 @@ console.log(`  Video models: ${Object.keys(videoModels).length}`);
 // Generate TypeScript output
 // ────────────────────────────────────────────────────────────────────
 
-const configEntry = (config) =>
-  `{ type: '${config.type}', requiresImage: ${config.requiresImage}, imageField: ${config.imageField ? `'${config.imageField}'` : 'null'}, supportsLora: ${config.supportsLora} }`;
+const configEntry = (config) => {
+  const fieldsEntry = config.fields
+    ? `, fields: ${JSON.stringify(config.fields)}`
+    : '';
+  return `{ type: '${config.type}', requiresImage: ${config.requiresImage}, imageField: ${config.imageField ? `'${config.imageField}'` : 'null'}, supportsLora: ${config.supportsLora}${fieldsEntry} }`;
+};
 
 const imageModelLines = Object.entries(imageModels)
   .map(([modelId, config]) => `  '${modelId}': ${configEntry(config)},`)
@@ -228,6 +260,14 @@ export const MODEL_REGISTRY = {
 export type AnyModelId = ImageModelId | VideoModelId;
 
 // Type definitions for each config value
+export interface FieldMetadata {
+  description?: string;
+  type?: string;
+  default?: any;
+  enum?: any[];
+  example?: any;
+}
+
 export interface ModelConfig {
   type:
     | 'text-to-image'
@@ -238,6 +278,7 @@ export interface ModelConfig {
   requiresImage: boolean;
   imageField: 'image' | 'images' | null;
   supportsLora: boolean;
+  fields?: Record<string, FieldMetadata>;
 }
 `;
 
