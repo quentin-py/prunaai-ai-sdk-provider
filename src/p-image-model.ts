@@ -384,7 +384,7 @@ export class PImageModel implements ImageModelV1 {
       }
 
       return {
-        input: editInput,
+        input: editInput as Record<string, unknown>,
       };
     } else {
       // ── Generation/Text-to-Image schema ──────────────────────────────
@@ -433,7 +433,7 @@ export class PImageModel implements ImageModelV1 {
       }
 
       return {
-        input: generationInput,
+        input: generationInput as Record<string, unknown>,
       };
     }
   }

@@ -41,7 +41,7 @@ describe.skipIf(!RUN_INTEGRATION)('Integration Tests — Pruna AI API', () => {
 
           const result = await pImageModel.doGenerate({
             ...testParams,
-          });
+          } as any);
 
           const duration = Date.now() - startTime;
 
@@ -63,7 +63,7 @@ describe.skipIf(!RUN_INTEGRATION)('Integration Tests — Pruna AI API', () => {
             modelId: model.modelId,
             status: 'passed',
             duration_ms: duration,
-            request: testParams,
+            request: testParams as any,
             response: {
               image_size_bytes: result.images[0].length,
               image_base64_prefix: result.images[0].substring(0, 20),
@@ -79,7 +79,7 @@ describe.skipIf(!RUN_INTEGRATION)('Integration Tests — Pruna AI API', () => {
             modelId: model.modelId,
             status: 'failed',
             duration_ms: duration,
-            request: buildTestParams(model.modelId, model.defaults),
+            request: buildTestParams(model.modelId, model.defaults) as any,
             error: error?.message || String(error),
             prunatree_schema_fields: model.schema ? Object.keys(model.schema.properties || {}) : [],
           });
@@ -93,7 +93,7 @@ describe.skipIf(!RUN_INTEGRATION)('Integration Tests — Pruna AI API', () => {
 
         const result = await pImageModel.doGenerate({
           ...testParams,
-        });
+        } as any);
 
         expect(result.response.modelId).toBe(model.modelId);
       });
@@ -109,12 +109,12 @@ describe.skipIf(!RUN_INTEGRATION)('Integration Tests — Pruna AI API', () => {
           const result1 = await pImageModel.doGenerate({
             ...testParams,
             seed: 12345,
-          });
+          } as any);
 
           const result2 = await pImageModel.doGenerate({
             ...testParams,
             seed: 12345,
-          });
+          } as any);
 
           // With same seed, image sizes should be very similar
           const size1 = result1.images[0].length;
