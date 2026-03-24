@@ -54,26 +54,26 @@ const pVideo = createPVideo({
 
 | Model | Description |
 |---|---|
-| `flux-2-klein-4b` | Text-to-image generation |
-| `flux-dev` | Text-to-image generation |
-| `flux-dev-lora` | Text-to-image generation |
-| `p-image` | Text-to-image generation |
-| `p-image-lora` | Text-to-image generation |
-| `p-image-pro` | Text-to-image generation |
-| `qwen-image` | Text-to-image generation |
-| `qwen-image-fast` | Text-to-image generation |
-| `wan-image-small` | Text-to-image generation |
-| `z-image-turbo` | Text-to-image generation |
-| `z-image-turbo-lora` | Text-to-image generation |
-| `z-image-turbo-small` | Text-to-image generation |
+| `flux-2-klein-4b` | Lightweight FLUX variant |
+| `flux-dev` | High-quality text-to-image (FLUX.1-dev) |
+| `flux-dev-lora` | FLUX with custom LoRA weights |
+| `p-image` | Pruna flagship model with 2-stage refinement |
+| `p-image-lora` | p-image with custom LoRA weights |
+| `p-image-pro` | High-quality Pruna variant |
+| `qwen-image` | Alibaba Qwen image model |
+| `qwen-image-fast` | Fast Qwen variant |
+| `wan-image-small` | Efficient image generation |
+| `z-image-turbo` | Ultra-fast generation |
+| `z-image-turbo-lora` | Turbo with LoRA support |
+| `z-image-turbo-small` | Lightweight Turbo |
 
 **Image Editing (3 models):**
 
 | Model | Description |
 |---|---|
-| `p-image-edit` | Image editing and composition |
-| `p-image-edit-lora` | Image editing and composition |
-| `qwen-image-edit-plus` | Image editing and composition |
+| `p-image-edit` | Pruna image editor |
+| `p-image-edit-lora` | Editor with LoRA support |
+| `qwen-image-edit-plus` | Advanced image editing |
 
 For complete usage examples and options, see the [Pruna AI documentation](https://docs.api.pruna.ai) or the [README](../README.md).
 
@@ -85,20 +85,20 @@ For complete usage examples and options, see the [Pruna AI documentation](https:
 
 | Model | Description |
 |---|---|
-| `p-video` | Text-to-video generation |
-| `wan-t2v` | Text-to-video generation |
+| `p-video` | Text-to-video with audio synthesis |
+| `wan-t2v` | High-quality text-to-video generation |
 
 **Image-to-Video (1 models):**
 
 | Model | Description |
 |---|---|
-| `wan-i2v` | Image-to-video generation |
+| `wan-i2v` | Image-to-video with motion control |
 
 **Video Processing (1 models):**
 
 | Model | Description |
 |---|---|
-| `vace` | Video processing and effects |
+| `vace` | Advanced video editing and effects |
 
 <Note>
   Video generation via `experimental_generateVideo` is currently experimental

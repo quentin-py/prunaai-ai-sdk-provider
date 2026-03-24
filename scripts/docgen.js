@@ -152,6 +152,32 @@ function generateAPIReference() {
   return doc;
 }
 
+// Model descriptions for ai-sdk.dev
+const MODEL_DESCRIPTIONS = {
+  // Text-to-Image
+  'flux-dev': 'High-quality text-to-image (FLUX.1-dev)',
+  'flux-dev-lora': 'FLUX with custom LoRA weights',
+  'flux-2-klein-4b': 'Lightweight FLUX variant',
+  'wan-image-small': 'Efficient image generation',
+  'qwen-image': 'Alibaba Qwen image model',
+  'qwen-image-fast': 'Fast Qwen variant',
+  'p-image': 'Pruna flagship model with 2-stage refinement',
+  'p-image-pro': 'High-quality Pruna variant',
+  'p-image-lora': 'p-image with custom LoRA weights',
+  'z-image-turbo': 'Ultra-fast generation',
+  'z-image-turbo-lora': 'Turbo with LoRA support',
+  'z-image-turbo-small': 'Lightweight Turbo',
+  // Image Editing
+  'qwen-image-edit-plus': 'Advanced image editing',
+  'p-image-edit': 'Pruna image editor',
+  'p-image-edit-lora': 'Editor with LoRA support',
+  // Video
+  'p-video': 'Text-to-video with audio synthesis',
+  'wan-t2v': 'High-quality text-to-video generation',
+  'wan-i2v': 'Image-to-video with motion control',
+  'vace': 'Advanced video editing and effects',
+};
+
 // Generate provider.mdx for ai-sdk.dev
 function generateProviderMdx() {
   const allModels = Object.keys(defaults)
@@ -235,16 +261,14 @@ const pVideo = createPVideo({
 |---|---|`;
 
   for (const model of textToImage) {
-    const schema = schemas[model];
-    const desc = schema?.description || 'Text-to-image generation';
+    const desc = MODEL_DESCRIPTIONS[model] || 'Text-to-image generation';
     mdx += `\n| \`${model}\` | ${desc} |`;
   }
 
   mdx += `\n\n**Image Editing (${imageEditing.length} models):**\n\n| Model | Description |\n|---|---|`;
 
   for (const model of imageEditing) {
-    const schema = schemas[model];
-    const desc = schema?.description || 'Image editing and composition';
+    const desc = MODEL_DESCRIPTIONS[model] || 'Image editing and composition';
     mdx += `\n| \`${model}\` | ${desc} |`;
   }
 
@@ -260,16 +284,14 @@ const pVideo = createPVideo({
 |---|---|`;
 
   for (const model of textToVideo) {
-    const schema = schemas[model];
-    const desc = schema?.description || 'Text-to-video generation';
+    const desc = MODEL_DESCRIPTIONS[model] || 'Text-to-video generation';
     mdx += `\n| \`${model}\` | ${desc} |`;
   }
 
   if (imageToVideo.length > 0) {
     mdx += `\n\n**Image-to-Video (${imageToVideo.length} models):**\n\n| Model | Description |\n|---|---|`;
     for (const model of imageToVideo) {
-      const schema = schemas[model];
-      const desc = schema?.description || 'Image-to-video generation';
+      const desc = MODEL_DESCRIPTIONS[model] || 'Image-to-video generation';
       mdx += `\n| \`${model}\` | ${desc} |`;
     }
   }
@@ -277,8 +299,7 @@ const pVideo = createPVideo({
   if (videoProcessing.length > 0) {
     mdx += `\n\n**Video Processing (${videoProcessing.length} models):**\n\n| Model | Description |\n|---|---|`;
     for (const model of videoProcessing) {
-      const schema = schemas[model];
-      const desc = schema?.description || 'Video processing and effects';
+      const desc = MODEL_DESCRIPTIONS[model] || 'Video processing and effects';
       mdx += `\n| \`${model}\` | ${desc} |`;
     }
   }
