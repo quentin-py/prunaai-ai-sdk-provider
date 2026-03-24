@@ -1,6 +1,6 @@
 # API Reference
 
-Auto-generated from prunatree. Updated: 2026-03-24T13:33:37.950Z
+Auto-generated from prunatree. Updated: 2026-03-24T14:03:32.117Z
 
 Generated for **19 models** from prunatree.
 
