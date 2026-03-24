@@ -270,20 +270,74 @@ See [`docs/API.md`](docs/API.md) for detailed parameter documentation for each m
 
 ## Automation & Development
 
-This provider is **100% automatically generated from prunatree**. To add a new model or update parameters:
+This provider is **100% automatically generated from prunatree**. All code, tests, types, and documentation are derived from prunatree schemas with zero hardcoding.
 
-1. Update the prunatree schema:
-   - Add model to `P-API.json`
-   - Add defaults to `model_param_defaults.json`
+### Automated Generation Pipeline
 
-2. Generate everything:
-   ```bash
-   npm run generate-all
+```bash
+npm run generate-all
+```
+
+Automatically generates:
+
+**Code & Types** (from P-API.json + model_param_defaults.json):
+- `src/generated/model-registry.ts` — 19 model configurations with full metadata
+- `src/generated/providers/*.ts` — Unified provider implementations
+- Type exports: `ImageModelId`, `VideoModelId`, `AnyModelId`
+
+**Documentation** (from prunatree schemas):
+- `docs/MODELS.md` — Complete model reference table
+- `docs/API.md` — Parameter reference for all 19 models
+- `docs/provider.mdx` — ai-sdk.dev provider documentation
+
+**Tests** (dynamic from prunatree):
+- `src/p-image.integration.ts` — Image model tests (generated per model)
+- `src/p-video.integration.ts` — Video model tests (generated per model)
+
+### Adding a New Model
+
+1. Update prunatree:
+   ```json
+   // prunatree/services/papi/app/openapi/schemas/P-API.json
+   {
+     "ModelName": {
+       "properties": {
+         "input": {
+           "properties": { ... }
+         }
+       }
+     }
+   }
+
+   // prunatree/services/papi/app/domain/model_param_defaults.json
+   {
+     "model-name": { ... }
+   }
    ```
 
-3. Tests and types are automatically updated!
+2. Generate:
+   ```bash
+   npm run generate-all
+   npm run test:integration  # Tests automatically included
+   ```
 
-See [`AUTOMATION.md`](AUTOMATION.md) for complete details on the automated generation pipeline.
+3. Commit:
+   ```bash
+   git add src/generated/ docs/
+   git commit -m "feat: add model-name support"
+   ```
+
+**Result:** All code, tests, types, and documentation updated automatically!
+
+### Individual Scripts
+
+```bash
+npm run codegen        # Generate code + types from prunatree
+npm run docgen         # Generate documentation from schemas
+npm run generate-all   # Run both codegen and docgen
+```
+
+See [`AUTOMATION.md`](AUTOMATION.md) for complete verification details.
 
 ---
 
