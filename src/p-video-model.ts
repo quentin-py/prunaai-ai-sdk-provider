@@ -188,24 +188,67 @@ export class PVideoModel implements VideoModelV3 {
       if (videoOpts.go_fast !== undefined) input.go_fast = videoOpts.go_fast;
     }
 
-    // Submit prediction
-    const predictionResponse = await this.fetch(`${this.baseURL}/v1/predictions`, {
-      method: 'POST',
-      headers: {
-        ...this.headers,
-        'Model': this.modelId,
-        'Try-Sync': 'true',
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({ input }),
-    });
+    // Submit prediction with retry logic for transient 504 errors
+    let lastError: Error | null = null;
+    const maxRetries = 3;
+    const initialDelayMs = 2000;
 
-    if (!predictionResponse.ok) {
-      const error = await predictionResponse.text();
-      throw new Error(`Pruna API prediction failed: ${predictionResponse.status} - ${error}`);
+    for (let attempt = 0; attempt < maxRetries; attempt++) {
+      try {
+        const predictionResponse = await this.fetch(`${this.baseURL}/v1/predictions`, {
+          method: 'POST',
+          headers: {
+            ...this.headers,
+            'Model': this.modelId,
+            'Try-Sync': 'true',
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({ input }),
+        });
+
+        if (!predictionResponse.ok) {
+          const error = await predictionResponse.text();
+
+          // Retry on 504 Gateway Timeout (transient server error)
+          if (predictionResponse.status === 504 && attempt < maxRetries - 1) {
+            lastError = new Error(`API returned 504 (attempt ${attempt + 1}/${maxRetries}), retrying...`);
+            const delayMs = initialDelayMs * Math.pow(2, attempt); // exponential backoff
+            await new Promise((resolve) => setTimeout(resolve, delayMs));
+            continue;
+          }
+
+          throw new Error(`Pruna API prediction failed: ${predictionResponse.status} - ${error}`);
+        }
+
+        // Successfully got response, process it
+        const prediction = await predictionResponse.json();
+        return this.processPredictionResponse(prediction, predictionResponse);
+      } catch (error) {
+        lastError = error instanceof Error ? error : new Error(String(error));
+
+        // Don't retry non-504 errors
+        if (!lastError.message.includes('504')) {
+          throw lastError;
+        }
+
+        // On last attempt, throw the error
+        if (attempt === maxRetries - 1) {
+          throw lastError;
+        }
+      }
     }
 
-    const prediction = await predictionResponse.json();
+    throw lastError || new Error('Failed to submit prediction after retries');
+  }
+
+  private async processPredictionResponse(
+    prediction: any,
+    predictionResponse: any
+  ): Promise<{
+    videos: Array<string>;
+    warnings: VideoModelV3CallWarning[];
+    response: { timestamp: Date; modelId: string; headers?: Record<string, string> };
+  }> {
 
     // Handle sync response (immediate result)
     if (prediction.status === 'succeeded' && (prediction.video_url || prediction.generation_url)) {
