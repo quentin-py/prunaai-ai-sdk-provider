@@ -152,6 +152,162 @@ function generateAPIReference() {
   return doc;
 }
 
+// Generate provider.mdx for ai-sdk.dev
+function generateProviderMdx() {
+  const allModels = Object.keys(defaults)
+    .filter(m => !m.includes('-trainer') && !m.startsWith('_'))
+    .sort();
+
+  // Separate image and video models
+  const imageModels = allModels.filter(m => {
+    const isVideoModel = m.includes('i2v') || m.includes('t2v') || m === 'vace' || m === 'p-video';
+    return !isVideoModel;
+  });
+
+  const videoModels = allModels.filter(m => {
+    return m.includes('i2v') || m.includes('t2v') || m === 'vace' || m === 'p-video';
+  });
+
+  // Categorize image models
+  const textToImage = imageModels.filter(m => !m.includes('-edit'));
+  const imageEditing = imageModels.filter(m => m.includes('-edit'));
+
+  // Categorize video models
+  const textToVideo = videoModels.filter(m => !m.includes('i2v') && m !== 'vace');
+  const imageToVideo = videoModels.filter(m => m.includes('i2v'));
+  const videoProcessing = videoModels.filter(m => m === 'vace');
+
+  let mdx = `---
+title: Pruna AI
+description: Learn how to use Pruna AI image and video models with the Vercel AI SDK.
+---
+
+# Pruna AI Provider
+
+[Pruna AI](https://pruna.ai) offers fast, efficient image and video generation models optimized for speed and quality. The Pruna AI provider for the Vercel AI SDK supports image generation, image editing, and video generation through a unified interface.
+
+## Setup
+
+The Pruna AI provider is available via the \`@prunaai/ai-sdk-provider\` module. You can install it with:
+
+\`\`\`bash
+npm install @prunaai/ai-sdk-provider
+\`\`\`
+
+Get your API key from the [Pruna AI dashboard](https://dashboard.pruna.ai) and set it as an environment variable:
+
+\`\`\`bash
+export PRUNA_API_KEY=your_api_key_here
+\`\`\`
+
+## Provider Instance
+
+You can import the default provider instances from \`@prunaai/ai-sdk-provider\`:
+
+\`\`\`ts
+import { pImage, pVideo } from '@prunaai/ai-sdk-provider';
+\`\`\`
+
+For customized setup:
+
+\`\`\`ts
+import { createPImage, createPVideo } from '@prunaai/ai-sdk-provider';
+
+const pImage = createPImage({
+  apiKey: 'your_api_key', // defaults to PRUNA_API_KEY env var
+  baseURL: 'https://api.pruna.ai', // optional
+});
+
+const pVideo = createPVideo({
+  apiKey: 'your_api_key',
+  baseURL: 'https://api.pruna.ai',
+  pollTimeoutMillis: 600000, // 10 minutes for video generation
+});
+\`\`\`
+
+## Image Models
+
+### Supported Image Models
+
+**Text-to-Image Generation (${textToImage.length} models):**
+
+| Model | Description |
+|---|---|`;
+
+  for (const model of textToImage) {
+    const schema = schemas[model];
+    const desc = schema?.description || 'Text-to-image generation';
+    mdx += `\n| \`${model}\` | ${desc} |`;
+  }
+
+  mdx += `\n\n**Image Editing (${imageEditing.length} models):**\n\n| Model | Description |\n|---|---|`;
+
+  for (const model of imageEditing) {
+    const schema = schemas[model];
+    const desc = schema?.description || 'Image editing and composition';
+    mdx += `\n| \`${model}\` | ${desc} |`;
+  }
+
+  mdx += `\n\nFor complete usage examples and options, see the [Pruna AI documentation](https://docs.api.pruna.ai) or the [README](../README.md).
+
+## Video Models
+
+### Supported Video Models
+
+**Text-to-Video (${textToVideo.length} models):**
+
+| Model | Description |
+|---|---|`;
+
+  for (const model of textToVideo) {
+    const schema = schemas[model];
+    const desc = schema?.description || 'Text-to-video generation';
+    mdx += `\n| \`${model}\` | ${desc} |`;
+  }
+
+  if (imageToVideo.length > 0) {
+    mdx += `\n\n**Image-to-Video (${imageToVideo.length} models):**\n\n| Model | Description |\n|---|---|`;
+    for (const model of imageToVideo) {
+      const schema = schemas[model];
+      const desc = schema?.description || 'Image-to-video generation';
+      mdx += `\n| \`${model}\` | ${desc} |`;
+    }
+  }
+
+  if (videoProcessing.length > 0) {
+    mdx += `\n\n**Video Processing (${videoProcessing.length} models):**\n\n| Model | Description |\n|---|---|`;
+    for (const model of videoProcessing) {
+      const schema = schemas[model];
+      const desc = schema?.description || 'Video processing and effects';
+      mdx += `\n| \`${model}\` | ${desc} |`;
+    }
+  }
+
+  mdx += `\n\n<Note>
+  Video generation via \`experimental_generateVideo\` is currently experimental
+  and may change in future versions. For complete API documentation and examples,
+  see the [Pruna AI API documentation](https://docs.api.pruna.ai).
+</Note>
+
+## API Reference
+
+This provider implements the [Pruna AI API](https://docs.api.pruna.ai).
+
+**Supported endpoints:**
+
+- \`POST /v1/predictions\` — Submit generation or editing predictions
+- \`GET /v1/predictions/status/{id}\` — Poll async prediction status
+- \`POST /v1/files\` — Upload raw image/video buffers
+
+For complete API documentation, authentication, rate limits, and advanced features, see:
+
+- [Pruna API Docs](https://docs.api.pruna.ai)
+- [Quickstart Guide](https://docs.api.pruna.ai/guides/quickstart)
+`;
+
+  return mdx;
+}
+
 // Write generated documentation
 function writeDocumentation() {
   const outputDir = path.join(__dirname, '../docs');
@@ -169,6 +325,11 @@ function writeDocumentation() {
   const apiRefPath = path.join(outputDir, 'API.md');
   fs.writeFileSync(apiRefPath, generateAPIReference());
   console.log(`✓ Generated: ${apiRefPath}`);
+
+  // Write provider MDX for ai-sdk.dev
+  const providerMdxPath = path.join(outputDir, 'provider.mdx');
+  fs.writeFileSync(providerMdxPath, generateProviderMdx());
+  console.log(`✓ Generated: ${providerMdxPath}`);
 
   console.log(`\n✅ Documentation generated in docs/`);
 }
