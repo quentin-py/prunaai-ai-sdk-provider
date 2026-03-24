@@ -81,12 +81,31 @@ For more on image generation with the AI SDK, see [generateImage()](/docs/refere
 
 ### Supported Image Models
 
-| Model | Type | Description |
-|---|---|---|
-| `p-image` | Generation | Pruna's flagship text-to-image model with 2-stage refinement |
-| `p-image-lora` | Generation | p-image with custom LoRA weights support |
-| `p-image-edit` | Editing | Edit and compose 1–5 reference images with text instructions |
-| `p-image-edit-lora` | Editing | p-image-edit with custom LoRA weights support |
+**Text-to-Image Generation (11 models):**
+
+| Model | Description |
+|---|---|
+| `flux-dev` | High-quality text-to-image (FLUX.1-dev) |
+| `flux-dev-lora` | FLUX with custom LoRA weights |
+| `flux-2-klein-4b` | Lightweight FLUX variant |
+| `wan-image-small` | Efficient image generation |
+| `qwen-image` | Alibaba Qwen image model |
+| `qwen-image-fast` | Fast Qwen variant |
+| `p-image` | Pruna flagship model with 2-stage refinement |
+| `p-image-pro` | High-quality Pruna variant |
+| `z-image-turbo` | Ultra-fast generation |
+| `z-image-turbo-lora` | Turbo with LoRA support |
+| `z-image-turbo-small` | Lightweight Turbo |
+
+**Image Editing (3 models):**
+
+| Model | Description |
+|---|---|
+| `qwen-image-edit-plus` | Advanced image editing |
+| `p-image-edit` | Pruna image editor |
+| `p-image-edit-lora` | Editor with LoRA support |
+
+For a complete parameter reference for all image models, see the [API Reference](https://api.pruna.ai/docs).
 
 ## Video Models (Experimental)
 
@@ -100,12 +119,24 @@ For more on video generation with the AI SDK, see [experimental_generateVideo()]
 
 ### Supported Video Models
 
-| Model | Type | Description |
-|---|---|---|
-| `p-video` | Text-to-Video | Pruna's text-to-video model with audio synthesis |
-| `wan-i2v` | Image-to-Video | Transform images into dynamic videos |
-| `wan-t2v` | Text-to-Video | High-quality text-to-video generation |
-| `vace` | Video Processing | Advanced video composition and effects |
+**Text-to-Video (2 models):**
+
+| Model | Description |
+|---|---|
+| `p-video` | Pruna's text-to-video model with audio synthesis |
+| `wan-t2v` | High-quality text-to-video generation |
+
+**Image-to-Video (1 model):**
+
+| Model | Description |
+|---|---|
+| `wan-i2v` | Transform images into dynamic videos with motion control |
+
+**Video Processing (1 model):**
+
+| Model | Description |
+|---|---|
+| `vace` | Advanced video composition, editing, and effects |
 
 <Note>
   Pruna AI also offers model training models (p-image-trainer, p-image-edit-trainer).
