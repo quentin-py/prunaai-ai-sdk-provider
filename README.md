@@ -2,7 +2,12 @@
 
 [Pruna AI](https://pruna.ai) provider for the [Vercel AI SDK](https://sdk.vercel.ai).
 
-Supports **image generation**, **image editing**, and **LoRA variants** through a single unified interface — one import, one provider, all models.
+Supports **15 image models** (generation, editing, LoRA) and **4 video models** (text-to-video, image-to-video, video processing) through a single unified interface — one import, all models.
+
+- ✅ **19 models** from prunatree
+- ✅ **100% automatically generated** from prunatree schemas
+- ✅ **Type-safe** with full TypeScript support
+- ✅ **Zero configuration** — just import and use
 
 ---
 
@@ -14,39 +19,17 @@ npm install @prunaai/ai-sdk-provider
 
 ---
 
-## Setup
+## Quick Start
 
-Get your API key from the [Pruna AI dashboard](https://dashboard.pruna.ai) and set it as an environment variable:
+### Setup
+
+Get your API key from the [Pruna AI dashboard](https://dashboard.pruna.ai):
 
 ```bash
 export PRUNA_API_KEY=your_api_key_here
 ```
 
----
-
-## Provider instance
-
-```ts
-import { pImage } from '@prunaai/ai-sdk-provider';
-```
-
-For a customised setup:
-
-```ts
-import { createPImage } from '@prunaai/ai-sdk-provider';
-
-const pImage = createPImage({
-  apiKey: 'your_api_key',          // defaults to PRUNA_API_KEY env var
-  baseURL: 'https://api.pruna.ai', // optional — this is the default
-  headers: { 'X-Custom-Header': 'value' }, // optional
-  pollIntervalMillis: 1000,        // optional — polling interval (default: 1000ms)
-  pollTimeoutMillis: 60000,        // optional — polling timeout (default: 60s)
-});
-```
-
----
-
-## Image generation — `p-image`
+### Image Generation
 
 ```ts
 import { generateImage } from 'ai';
@@ -55,92 +38,82 @@ import { pImage } from '@prunaai/ai-sdk-provider';
 const { image } = await generateImage({
   model: pImage('p-image'),
   prompt: 'A serene mountain lake at dawn, photorealistic, 4k',
-  size: '1024x1024', // maps to width × height; sets aspect_ratio to 'custom' automatically
-  seed: 42,          // optional — for reproducible outputs
 });
 
-// image.base64      — base64-encoded image data
-// image.uint8Array  — Uint8Array binary data
+console.log(image.base64); // Base64-encoded image
 ```
 
-### Generation provider options
+### Video Generation
 
 ```ts
-const { image } = await generateImage({
-  model: pImage('p-image'),
-  prompt: 'A fox in a snowy forest',
-  providerOptions: {
-    pimage: {
-      aspect_ratio: '3:2',       // '1:1' | '16:9' | '9:16' | '4:3' | '3:4' | '3:2' | '2:3' | 'custom'
-      prompt_upsampling: true,   // expand the prompt with an LLM before generation
-      disable_safety_checker: false,
-    },
-  },
+import { generateVideo } from 'ai/experimental';
+import { pVideo } from '@prunaai/ai-sdk-provider';
+
+const { video } = await generateVideo({
+  model: pVideo('wan-t2v'),
+  prompt: 'A graceful swan swimming through a misty lake',
 });
+
+console.log(video); // Base64-encoded video
 ```
 
 ---
 
-## Image generation with LoRA — `p-image-lora`
+## Image Models (15 total)
+
+### Text-to-Image Generation
 
 ```ts
-import { generateImage } from 'ai';
-import { pImage } from '@prunaai/ai-sdk-provider';
-
 const { image } = await generateImage({
-  model: pImage('p-image-lora'),
-  prompt: 'A portrait in the style of my fine-tuned model',
-  providerOptions: {
-    pimage: {
-      lora_weights: 'huggingface.co/your-org/your-lora',
-      lora_scale: 0.8,      // −1 to 3, default 1
-      hf_api_token: '...',  // only needed for private HF repos
-    },
-  },
+  model: pImage('flux-dev'),
+  prompt: 'A steampunk airship with copper details',
 });
 ```
 
----
+**Available models:**
+- `flux-dev` — High-quality text-to-image (FLUX.1-dev)
+- `flux-dev-lora` — FLUX with custom LoRA weights
+- `flux-2-klein-4b` — Lightweight FLUX variant
+- `wan-image-small` — Efficient image generation
+- `qwen-image` — Alibaba Qwen image model
+- `qwen-image-fast` — Fast Qwen variant
+- `p-image` — Pruna flagship model
+- `p-image-pro` — High-quality Pruna variant
+- `z-image-turbo` — Ultra-fast generation
+- `z-image-turbo-lora` — Turbo with LoRA support
+- `z-image-turbo-small` — Lightweight Turbo
 
-## Image editing — `p-image-edit`
-
-Input images are passed via `prompt.images`. They must be URL strings or raw buffers (`Uint8Array` / `ArrayBuffer`) — the provider automatically uploads raw buffers to Pruna before submitting the request.
-
-> **Note:** The `prompt` parameter normally expects a string, but for edit models you pass an object with `{ text, images }`. This requires a type assertion in strict TypeScript codebases:
-> ```ts
-> prompt: { text: '...', images: [...] } as any
-> ```
+### Image Editing
 
 ```ts
-import { generateImage } from 'ai';
-import { pImage } from '@prunaai/ai-sdk-provider';
 import * as fs from 'node:fs';
 
-const sourceImage = fs.readFileSync('photo.jpg'); // Buffer / Uint8Array
+const sourceImage = fs.readFileSync('photo.jpg'); // Uint8Array or Buffer
 
 const { image } = await generateImage({
-  model: pImage('p-image-edit'),
+  model: pImage('qwen-image-edit-plus'),
   prompt: {
-    text: 'Transform into a watercolour painting with warm tones',
-    images: [sourceImage], // 1–5 images; raw buffers are uploaded automatically
+    text: 'Make the sky more dramatic and dramatic',
+    images: [sourceImage],
   } as any,
 });
-
-fs.writeFileSync('edited.png', image.uint8Array);
 ```
 
-### Edit provider options
+**Available models:**
+- `qwen-image-edit-plus` — Advanced image editing
+- `p-image-edit` — Pruna image editor
+- `p-image-edit-lora` — Editor with LoRA support
+
+### Custom LoRA Fine-Tuning
 
 ```ts
 const { image } = await generateImage({
-  model: pImage('p-image-edit'),
-  prompt: { text: 'Make the sky dramatic and stormy', images: [sourceImage] },
+  model: pImage('p-image-lora'),
+  prompt: 'A portrait in my custom style',
   providerOptions: {
     pimage: {
-      edit_aspect_ratio: 'match_input_image', // default
-      // 'match_input_image' | '1:1' | '16:9' | '9:16' | '4:3' | '3:4' | '3:2' | '2:3'
-      turbo: true,                // faster generation; disable for complex tasks
-      disable_safety_checker: false,
+      lora_weights: 'https://huggingface.co/your-org/your-lora',
+      lora_scale: 0.8, // −1 to 3, default 1
     },
   },
 });
@@ -148,23 +121,134 @@ const { image } = await generateImage({
 
 ---
 
-## Image editing with LoRA — `p-image-edit-lora`
+## Video Models (4 total)
+
+### Text-to-Video
 
 ```ts
-import { generateImage } from 'ai';
-import { pImage } from '@prunaai/ai-sdk-provider';
+import { generateVideo } from 'ai/experimental';
+import { pVideo } from '@prunaai/ai-sdk-provider';
 
-const { image } = await generateImage({
-  model: pImage('p-image-edit-lora'),
+const { video } = await generateVideo({
+  model: pVideo('wan-t2v'),
+  prompt: 'A person walking through a snowy forest at sunset',
+  providerOptions: {
+    pvideo: {
+      num_frames: 81,
+      frames_per_second: 16,
+    },
+  },
+});
+```
+
+**Available models:**
+- `wan-t2v` — Text-to-video generation
+- `p-video` — Pruna video generation
+
+### Image-to-Video
+
+```ts
+const sourceImage = fs.readFileSync('photo.jpg');
+
+const { video } = await generateVideo({
+  model: pVideo('wan-i2v'),
   prompt: {
-    text: 'Apply my custom style to image 1',
+    text: 'Smooth camera pan across the landscape',
     images: [sourceImage],
   } as any,
   providerOptions: {
+    pvideo: {
+      num_frames: 81,
+    },
+  },
+});
+```
+
+**Available models:**
+- `wan-i2v` — Image-to-video generation with motion control
+
+### Video Processing
+
+```ts
+const { video } = await generateVideo({
+  model: pVideo('vace'),
+  prompt: {
+    text: 'Apply cinematic color grading',
+    images: [sourceVideo], // Can process video frames
+  } as any,
+});
+```
+
+**Available models:**
+- `vace` — Advanced video editing and processing
+
+---
+
+## Provider Configuration
+
+### Image Provider
+
+```ts
+import { createPImage } from '@prunaai/ai-sdk-provider';
+
+const pImage = createPImage({
+  apiKey: 'your_api_key',                    // defaults to PRUNA_API_KEY
+  baseURL: 'https://api.pruna.ai',          // optional
+  headers: { 'X-Custom-Header': 'value' }, // optional
+});
+```
+
+### Video Provider
+
+```ts
+import { createPVideo } from '@prunaai/ai-sdk-provider';
+
+const pVideo = createPVideo({
+  apiKey: 'your_api_key',
+  baseURL: 'https://api.pruna.ai',
+  pollIntervalMillis: 1000,        // polling interval (default: 1000ms)
+  pollTimeoutMillis: 600000,       // polling timeout (default: 10 minutes)
+});
+```
+
+---
+
+## Advanced Options
+
+### Image Generation Options
+
+```ts
+const { image } = await generateImage({
+  model: pImage('flux-dev'),
+  prompt: 'A landscape painting',
+  providerOptions: {
     pimage: {
-      lora_weights: 'huggingface.co/your-org/your-lora',
-      lora_scale: 1.0,     // −1 to 3, default 1
-      hf_api_token: '...',
+      aspect_ratio: '16:9',           // 1:1, 16:9, 9:16, 4:3, 3:4, 3:2, 2:3, custom
+      width: 1024,                    // 256-1440, multiple of 16
+      height: 768,                    // 256-1440, multiple of 16
+      prompt_upsampling: true,        // enhance with LLM
+      seed: 42,                       // reproducible outputs
+      disable_safety_checker: false,
+    },
+  },
+});
+```
+
+### Video Generation Options
+
+```ts
+const { video } = await generateVideo({
+  model: pVideo('wan-t2v'),
+  prompt: 'A video of...',
+  providerOptions: {
+    pvideo: {
+      num_frames: 81,                    // 1-144, default 81
+      frames_per_second: 16,             // default 16
+      resolution: '720p',                // 480p, 720p
+      aspect_ratio: '16:9',              // 16:9, 9:16, 1:1
+      seed: 42,
+      disable_safety_checker: false,
+      go_fast: true,                     // faster generation
     },
   },
 });
@@ -172,57 +256,99 @@ const { image } = await generateImage({
 
 ---
 
-## Supported models
+## Complete Model Reference
 
-| Model | Type | Description |
-|---|---|---|
-| `p-image` | Generation | Pruna's flagship text-to-image model with 2-stage refinement |
-| `p-image-lora` | Generation | p-image with custom LoRA weights support |
-| `p-image-edit` | Editing | Edit and compose 1–5 reference images with text instructions |
-| `p-image-edit-lora` | Editing | p-image-edit with custom LoRA weights support |
+See [`docs/MODELS.md`](docs/MODELS.md) for a complete table of all 19 models with:
+- Model type and description
+- Supported parameters per model
+- Default values
+- Parameter constraints
 
-> **Note:** Pruna AI also offers video generation (`p-video`, `wan-i2v`, `wan-t2v`, `vace`) and model training (`p-image-trainer`, `p-image-edit-trainer`) models. The Vercel AI SDK does not currently provide an interface for video generation or model training — use the [Pruna AI API](https://docs.api.pruna.ai) directly for those.
-
----
-
-## Full `providerOptions.pimage` reference
-
-| Option | Models | Type | Default | Description |
-|---|---|---|---|---|
-| `aspect_ratio` | generation | string | `'16:9'` | Output aspect ratio. Auto-set to `'custom'` when `size` or `width`/`height` is used. |
-| `width` | generation | number | — | Output width in pixels (256–1440, multiple of 16). Sets `aspect_ratio` to `'custom'`. |
-| `height` | generation | number | — | Output height in pixels (256–1440, multiple of 16). Sets `aspect_ratio` to `'custom'`. |
-| `prompt_upsampling` | generation | boolean | `false` | Expand the prompt with an LLM before generation. |
-| `edit_aspect_ratio` | editing | string | `'match_input_image'` | Output aspect ratio for edit models. |
-| `turbo` | editing | boolean | `true` | Faster generation. Disable for complex editing tasks. |
-| `lora_weights` | lora | string | — | HuggingFace URL for LoRA weights. Required for lora models. |
-| `lora_scale` | lora | number | `1` | LoRA influence scale (−1 to 3). Only sent if explicitly provided. |
-| `hf_api_token` | lora | string | — | HuggingFace token for private LoRA repos. |
-| `disable_safety_checker` | all | boolean | `false` | Disable the safety filter. |
-
-Top-level `generateImage()` parameters also supported:
-
-| Parameter | Description |
-|---|---|
-| `size` | `'{width}x{height}'` string — sets `aspect_ratio` to `'custom'` automatically |
-| `aspectRatio` | `'{w}:{h}'` string — used when no `providerOptions.pimage.aspect_ratio` is set |
-| `seed` | Integer seed for reproducible outputs |
-| `n` | Number of images to generate (SDK batches calls automatically) |
+See [`docs/API.md`](docs/API.md) for detailed parameter documentation for each model.
 
 ---
 
-## API reference
+## Automation & Development
 
-This provider implements the [Pruna AI API v0.3.0](https://docs.api.pruna.ai).
+This provider is **100% automatically generated from prunatree**. To add a new model or update parameters:
+
+1. Update the prunatree schema:
+   - Add model to `P-API.json`
+   - Add defaults to `model_param_defaults.json`
+
+2. Generate everything:
+   ```bash
+   npm run generate-all
+   ```
+
+3. Tests and types are automatically updated!
+
+See [`AUTOMATION.md`](AUTOMATION.md) for complete details on the automated generation pipeline.
+
+---
+
+## Error Handling
+
+The provider includes automatic retry logic for transient server errors:
+
+```ts
+try {
+  const { image } = await generateImage({
+    model: pImage('flux-dev'),
+    prompt: 'A sunset over mountains',
+  });
+} catch (error) {
+  if (error.message.includes('504')) {
+    // Temporary server issue - retries were attempted
+    console.error('API server temporarily unavailable');
+  }
+  // Handle error...
+}
+```
+
+The provider retries transient 504 Gateway Timeout errors with exponential backoff (3 attempts, 2s/4s/8s delays).
+
+---
+
+## Testing
+
+Run integration tests against live Pruna API:
+
+```bash
+export PRUNA_API_KEY=your_api_key
+npm run test:integration
+```
+
+All 16 models are tested automatically. See test results and model status in the output.
+
+---
+
+## Type Safety
+
+Full TypeScript support with auto-generated types:
+
+```ts
+import type { ImageModelId, VideoModelId, AnyModelId } from '@prunaai/ai-sdk-provider';
+
+const modelId: ImageModelId = 'flux-dev';  // ✅ type-checked
+const videoId: VideoModelId = 'wan-t2v';   // ✅ type-checked
+```
+
+---
+
+## API Reference
+
+This provider implements the [Pruna AI API](https://docs.api.pruna.ai).
 
 **Supported endpoints:**
-- `POST /v1/predictions` — Submit image generation or editing predictions
+- `POST /v1/predictions` — Submit generation/editing predictions
 - `GET /v1/predictions/status/{id}` — Poll async prediction status
-- `POST /v1/files` — Upload raw image buffers for editing
+- `POST /v1/files` — Upload image/video buffers
 
-For complete API documentation, authentication, rate limits, and advanced features, see:
+For complete API documentation:
 - [Pruna API Docs](https://docs.api.pruna.ai)
-- [Quickstart Guide](https://docs.api.pruna.ai/guides/quickstart)
+- [Model Documentation](https://docs.api.pruna.ai/guides/models)
+- [API Reference](https://docs.api.pruna.ai/api-reference)
 
 ---
 
