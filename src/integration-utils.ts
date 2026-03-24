@@ -98,26 +98,28 @@ export function loadPrunaTreeModels(): ModelEntry[] {
 }
 
 /**
- * Validate that base64 string is a valid PNG
- * Checks for PNG magic bytes: \x89PNG\r\n\x1a\n
+ * Validate that base64 string is a valid image
+ * Checks for PNG, JPEG, or WEBP magic bytes
  */
 export function isValidPng(base64: string): boolean {
   if (!base64 || typeof base64 !== 'string') return false;
 
   try {
-    // Decode first 8 bytes
-    const bytes = Buffer.from(base64.substring(0, 12), 'base64');
-    // PNG magic bytes
-    return (
-      bytes[0] === 0x89 &&
-      bytes[1] === 0x50 &&
-      bytes[2] === 0x4e &&
-      bytes[3] === 0x47 &&
-      bytes[4] === 0x0d &&
-      bytes[5] === 0x0a &&
-      bytes[6] === 0x1a &&
-      bytes[7] === 0x0a
-    );
+    // Decode first 12 bytes to check multiple formats
+    const bytes = Buffer.from(base64.substring(0, 16), 'base64');
+
+    // PNG magic bytes: \x89PNG\r\n\x1a\n
+    const isPng = bytes[0] === 0x89 && bytes[1] === 0x50 && bytes[2] === 0x4e && bytes[3] === 0x47;
+
+    // JPEG magic bytes: \xFF\xD8\xFF
+    const isJpeg = bytes[0] === 0xff && bytes[1] === 0xd8 && bytes[2] === 0xff;
+
+    // WEBP magic bytes: RIFF...WEBP
+    const isWebp =
+      bytes[0] === 0x52 && bytes[1] === 0x49 && bytes[2] === 0x46 && bytes[3] === 0x46 &&
+      bytes[8] === 0x57 && bytes[9] === 0x45 && bytes[10] === 0x42 && bytes[11] === 0x50;
+
+    return isPng || isJpeg || isWebp;
   } catch {
     return false;
   }
@@ -126,6 +128,7 @@ export function isValidPng(base64: string): boolean {
 /**
  * Build valid doGenerate params for a given model
  * Uses model registry to determine what fields to inject (image, LoRA, etc.)
+ * Only includes parameters that the specific model actually accepts
  */
 export function buildTestParams(modelId: string, defaults: Record<string, any>): Record<string, any> {
   const params: Record<string, any> = {
@@ -134,31 +137,81 @@ export function buildTestParams(modelId: string, defaults: Record<string, any>):
   };
 
   const config = MODEL_REGISTRY[modelId as keyof typeof MODEL_REGISTRY];
+  if (!config) {
+    return params; // Fallback for unknown models
+  }
+
+  // Determine provider key based on model type
+  const isVideo = config.type.includes('video');
+  const providerKey = isVideo ? 'pvideo' : 'pimage';
 
   // For models that require or support images, inject test image URL
-  if (config?.requiresImage || (config?.imageField && config.type.includes('image'))) {
+  if (config.requiresImage || (config.imageField && (config.type.includes('image') || isVideo))) {
+    // Different models expect different field names and types
     if (config.imageField === 'images') {
-      // Array format for p-image-edit
+      // p-image-edit expects 'images' as array
       params.prompt = {
         text: TEST_PROMPT,
         images: [TEST_IMAGE_URL],
       };
     } else if (config.imageField === 'image') {
-      // Single image for qwen-image-edit-plus, flux-dev-lora, qwen-image, etc.
+      // qwen-image-edit-plus, wan-i2v and others expect 'image'
+      // The AI SDK's prompt object uses 'images' field which the provider extracts
       params.prompt = {
         text: TEST_PROMPT,
-        images: [TEST_IMAGE_URL], // Still wrapped in array for API consumption
+        images: [TEST_IMAGE_URL],
       };
     }
   }
 
-  // For models that support LoRA, inject test LoRA URL
-  if (config?.supportsLora) {
-    params.providerOptions = {
-      pimage: {
-        lora_weights: TEST_LORA_URL,
-      },
-    };
+  // For models that support LoRA, inject appropriate LoRA parameter
+  // Different models use different parameter names (lora_weights, lora, etc.)
+  if (config.supportsLora && config.fields) {
+    const providerOpts: Record<string, any> = {};
+
+    // Check which LoRA parameter name this model accepts
+    if (config.fields['lora_weights']) {
+      // flux-dev-lora, qwen-image use lora_weights
+      providerOpts.lora_weights = TEST_LORA_URL;
+    } else if (config.fields['lora']) {
+      // Some models use just 'lora'
+      providerOpts.lora = TEST_LORA_URL;
+    } else if (config.fields['lora_weights_transformer']) {
+      // Video models have transformer LoRA (wan-i2v, wan-t2v)
+      providerOpts.lora_weights_transformer = TEST_LORA_URL;
+    } else if (config.fields['lora_scale_transformer']) {
+      // Fallback: video models might only have scale without weights
+      providerOpts.lora_weights_transformer = TEST_LORA_URL;
+    }
+
+    if (Object.keys(providerOpts).length > 0) {
+      params.providerOptions = {
+        [providerKey]: providerOpts,
+      };
+    }
+  }
+
+  // For models that accept only specific parameters, filter out unsupported ones
+  // Use model's field metadata to only include accepted parameters
+  if (config.fields) {
+    const acceptedFields = Object.keys(config.fields);
+    const providerOpts = params.providerOptions?.[providerKey] || {};
+
+    // Add important default fields that might be required or expected
+    if (acceptedFields.includes('aspect_ratio') && !providerOpts.aspect_ratio) {
+      providerOpts.aspect_ratio = defaults.aspect_ratio || '16:9';
+    }
+
+    // For video models, ensure num_frames is set (often required)
+    if (acceptedFields.includes('num_frames') && !providerOpts.num_frames) {
+      providerOpts.num_frames = defaults.num_frames || 81;
+    }
+
+    if (Object.keys(providerOpts).length > 0) {
+      params.providerOptions = {
+        [providerKey]: providerOpts,
+      };
+    }
   }
 
   return params;

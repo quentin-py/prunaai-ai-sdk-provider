@@ -1,6 +1,7 @@
 import {
   Experimental_VideoModelV3 as VideoModelV3,
   Experimental_VideoModelV3CallOptions as VideoModelV3CallOptions,
+  Experimental_VideoModelV3CallWarning as VideoModelV3CallWarning,
 } from '@ai-sdk/provider';
 import { FetchFunction, loadApiKey } from '@ai-sdk/provider-utils';
 
@@ -134,6 +135,7 @@ export class PVideoModel implements VideoModelV3 {
     this.apiKey = loadApiKey({
       apiKey: settings.apiKey,
       environmentVariableName: 'PRUNA_API_KEY',
+      description: 'Pruna AI API key',
     });
 
     this.headers = {
@@ -144,6 +146,7 @@ export class PVideoModel implements VideoModelV3 {
 
   async doGenerate(options: VideoModelV3CallOptions): Promise<{
     videos: Array<string>;
+    warnings: VideoModelV3CallWarning[];
     response: { timestamp: Date; modelId: string; headers?: Record<string, string> };
   }> {
 
@@ -153,8 +156,14 @@ export class PVideoModel implements VideoModelV3 {
     };
 
     // Handle image-to-video
-    if (typeof options.prompt === 'object' && options.prompt?.image) {
-      input.image = options.prompt.image;
+    // Extract image from prompt.image (direct) or prompt.images array (from AI SDK)
+    if (typeof options.prompt === 'object' && options.prompt) {
+      const promptObj = options.prompt as any;
+      if (promptObj.image) {
+        input.image = promptObj.image;
+      } else if (promptObj.images && Array.isArray(promptObj.images) && promptObj.images.length > 0) {
+        input.image = promptObj.images[0];
+      }
     }
 
     // Add video-specific options
@@ -199,12 +208,13 @@ export class PVideoModel implements VideoModelV3 {
     const prediction = await predictionResponse.json();
 
     // Handle sync response (immediate result)
-    if (prediction.status === 'succeeded' && prediction.video_url) {
-      const videoUrl = prediction.video_url;
+    if (prediction.status === 'succeeded' && (prediction.video_url || prediction.generation_url)) {
+      const videoUrl = prediction.video_url || prediction.generation_url;
       const videoBase64 = await this.downloadVideo(videoUrl);
 
       return {
         videos: [videoBase64],
+        warnings: [],
         response: {
           timestamp: new Date(),
           modelId: this.modelId,
@@ -215,7 +225,10 @@ export class PVideoModel implements VideoModelV3 {
 
     // Handle async response - poll for result
     if (!prediction.id) {
-      throw new Error('No prediction ID returned from API');
+      // Enhanced error: show what fields are actually in the response
+      const responseKeys = Object.keys(prediction).slice(0, 10);
+      const responsePreview = JSON.stringify(prediction).substring(0, 200);
+      throw new Error(`No prediction ID returned from API. Response keys: [${responseKeys.join(', ')}]. Response: ${responsePreview}`);
     }
 
     let resultPrediction = prediction;
@@ -263,6 +276,7 @@ export class PVideoModel implements VideoModelV3 {
 
     return {
       videos: [videoBase64],
+      warnings: [],
       response: {
         timestamp: new Date(),
         modelId: this.modelId,
@@ -314,6 +328,7 @@ export function createPVideo(options: PVideoProviderSettings = {}): PVideoProvid
     apikey: loadApiKey({
       apiKey: options.apiKey,
       environmentVariableName: 'PRUNA_API_KEY',
+      description: 'Pruna AI API key',
     }),
   });
 

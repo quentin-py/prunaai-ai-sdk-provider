@@ -28,7 +28,7 @@ describe('PImageModel', () => {
         expect(model).toBeDefined();
         expect(model.modelId).toBe(id);
         expect(model.provider).toBe('pimage');
-        expect(model.specificationVersion).toBe('v1');
+        expect(model.specificationVersion).toBe('v2');
         expect(model.maxImagesPerCall).toBe(1);
       });
     });

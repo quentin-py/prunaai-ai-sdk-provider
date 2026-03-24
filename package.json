@@ -34,6 +34,8 @@
     "typecheck": "tsc --noEmit",
     "lint": "eslint src --ext .ts",
     "codegen": "node scripts/codegen.js",
+    "docgen": "node scripts/docgen.js",
+    "generate-all": "npm run codegen && npm run docgen",
     "test": "vitest run --config vitest.config.ts",
     "test:integration": "vitest run --config vitest.integration.config.ts",
     "prepublishOnly": "npm run build && npm run typecheck"

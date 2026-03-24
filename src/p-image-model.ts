@@ -1,7 +1,7 @@
 import {
-  ImageModelV1,
-  ImageModelV1CallOptions,
-  ImageModelV1CallWarning,
+  ImageModelV2,
+  type ImageModelV2CallOptions,
+  type ImageModelV2CallWarning,
 } from '@ai-sdk/provider';
 import { FetchFunction, loadApiKey } from '@ai-sdk/provider-utils';
 import { IMAGE_MODEL_CONFIGS, type ImageModelId } from './generated/model-registry';
@@ -187,8 +187,8 @@ interface FileUploadResponse {
 // Main model class
 // ──────────────────────────────────────────────
 
-export class PImageModel implements ImageModelV1 {
-  readonly specificationVersion = 'v1';
+export class PImageModel implements ImageModelV2 {
+  readonly specificationVersion = 'v2';
   readonly modelId: PImageModelId;
 
   private readonly settings: PImageModelSettings;
@@ -241,6 +241,11 @@ export class PImageModel implements ImageModelV1 {
   private get imageField(): 'image' | 'images' | null {
     const config = IMAGE_MODEL_CONFIGS[this.modelId as ImageModelId];
     return config?.imageField ?? null;
+  }
+
+  private get imageFieldIsArray(): boolean {
+    const config = IMAGE_MODEL_CONFIGS[this.modelId as ImageModelId];
+    return config?.imageFieldIsArray ?? false;
   }
 
   private getRequestHeaders(): Record<string, string> {
@@ -377,7 +382,8 @@ export class PImageModel implements ImageModelV1 {
       if (this.imageField === 'images') {
         editInput.images = resolvedImages;
       } else if (this.imageField === 'image' && resolvedImages.length > 0) {
-        editInput.image = resolvedImages[0]; // single image URL
+        // Check if the image field expects an array or single string
+        editInput.image = this.imageFieldIsArray ? resolvedImages : resolvedImages[0];
       } else if (!this.imageField && resolvedImages.length > 0) {
         // Fallback for unknown models: treat as images array
         editInput.images = resolvedImages;
@@ -498,12 +504,12 @@ export class PImageModel implements ImageModelV1 {
 
   // ── Main doGenerate ────────────────────────
 
-  async doGenerate(options: ImageModelV1CallOptions): Promise<{
+  async doGenerate(options: ImageModelV2CallOptions): Promise<{
     images: Array<string>;
-    warnings: ImageModelV1CallWarning[];
+    warnings: ImageModelV2CallWarning[];
     response: { timestamp: Date; modelId: string; headers: Record<string, string> | undefined };
   }> {
-    const warnings: ImageModelV1CallWarning[] = [];
+    const warnings: ImageModelV2CallWarning[] = [];
     const po = (options.providerOptions?.pimage ?? {}) as PImageCallOptions;
 
     // Warn on model/param mismatches
