@@ -1,0 +1,122 @@
+---
+title: Pruna AI
+description: Learn how to use Pruna AI image and video models with the Vercel AI SDK.
+---
+
+# Pruna AI Provider
+
+[Pruna AI](https://pruna.ai) offers fast, efficient image and video generation models optimized for speed and quality. The Pruna AI provider for the Vercel AI SDK supports image generation, image editing, and video generation through a unified interface.
+
+## Setup
+
+The Pruna AI provider is available via the `@prunaai/ai-sdk-provider` module. You can install it with:
+
+```bash
+npm install @prunaai/ai-sdk-provider
+```
+
+Get your API key from the [Pruna AI dashboard](https://dashboard.pruna.ai) and set it as an environment variable:
+
+```bash
+export PRUNA_API_KEY=your_api_key_here
+```
+
+## Provider Instance
+
+You can import the default provider instances from `@prunaai/ai-sdk-provider`:
+
+```ts
+import { pImage, pVideo } from '@prunaai/ai-sdk-provider';
+```
+
+For customized setup:
+
+```ts
+import { createPImage, createPVideo } from '@prunaai/ai-sdk-provider';
+
+const pImage = createPImage({
+  apiKey: 'your_api_key', // defaults to PRUNA_API_KEY env var
+  baseURL: 'https://api.pruna.ai', // optional
+});
+
+const pVideo = createPVideo({
+  apiKey: 'your_api_key',
+  baseURL: 'https://api.pruna.ai',
+  pollTimeoutMillis: 600000, // 10 minutes for video generation
+});
+```
+
+## Image Models
+
+### Supported Image Models
+
+**Text-to-Image Generation (12 models):**
+
+| Model | Description |
+|---|---|
+| `flux-2-klein-4b` | Lightweight FLUX variant |
+| `flux-dev` | High-quality text-to-image (FLUX.1-dev) |
+| `flux-dev-lora` | FLUX with custom LoRA weights |
+| `p-image` | Pruna flagship model with 2-stage refinement |
+| `p-image-lora` | p-image with custom LoRA weights |
+| `p-image-pro` | High-quality Pruna variant |
+| `qwen-image` | Alibaba Qwen image model |
+| `qwen-image-fast` | Fast Qwen variant |
+| `wan-image-small` | Efficient image generation |
+| `z-image-turbo` | Ultra-fast generation |
+| `z-image-turbo-lora` | Turbo with LoRA support |
+| `z-image-turbo-small` | Lightweight Turbo |
+
+**Image Editing (3 models):**
+
+| Model | Description |
+|---|---|
+| `p-image-edit` | Pruna image editor |
+| `p-image-edit-lora` | Editor with LoRA support |
+| `qwen-image-edit-plus` | Advanced image editing |
+
+For complete usage examples and options, see the [Pruna AI documentation](https://docs.api.pruna.ai) or the [README](../README.md).
+
+## Video Models
+
+### Supported Video Models
+
+**Text-to-Video (2 models):**
+
+| Model | Description |
+|---|---|
+| `p-video` | Text-to-video with audio synthesis |
+| `wan-t2v` | High-quality text-to-video generation |
+
+**Image-to-Video (1 models):**
+
+| Model | Description |
+|---|---|
+| `wan-i2v` | Image-to-video with motion control |
+
+**Video Processing (1 models):**
+
+| Model | Description |
+|---|---|
+| `vace` | Advanced video editing and effects |
+
+<Note>
+  Video generation via `experimental_generateVideo` is currently experimental
+  and may change in future versions. For complete API documentation and examples,
+  see the [Pruna AI API documentation](https://docs.api.pruna.ai).
+</Note>
+
+## API Reference
+
+This provider implements the [Pruna AI API](https://docs.api.pruna.ai).
+
+**Supported endpoints:**
+
+- `POST /v1/predictions` — Submit generation or editing predictions
+- `GET /v1/predictions/status/{id}` — Poll async prediction status
+- `POST /v1/files` — Upload raw image/video buffers
+
+For complete API documentation, authentication, rate limits, and advanced features, see:
+
+- [Pruna API Docs](https://docs.api.pruna.ai)
+- [Quickstart Guide](https://docs.api.pruna.ai/guides/quickstart)

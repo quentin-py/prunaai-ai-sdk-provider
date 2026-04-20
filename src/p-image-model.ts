@@ -1,20 +1,17 @@
 import {
-  ImageModelV1,
-  ImageModelV1CallOptions,
-  ImageModelV1CallWarning,
+  ImageModelV2,
+  type ImageModelV2CallOptions,
+  type ImageModelV2CallWarning,
 } from '@ai-sdk/provider';
 import { FetchFunction, loadApiKey } from '@ai-sdk/provider-utils';
+import { IMAGE_MODEL_CONFIGS, type ImageModelId } from './generated/model-registry';
 
 // ──────────────────────────────────────────────
-// Model ID type
+// Model ID type — re-export from generated registry
 // ──────────────────────────────────────────────
 
-export type PImageModelId =
-  | 'p-image'
-  | 'p-image-lora'
-  | 'p-image-edit'
-  | 'p-image-edit-lora'
-  | (string & {}); // allow future model IDs without breaking types
+// Alias for backwards compatibility, re-exports the generated type
+export type PImageModelId = ImageModelId | (string & {});
 
 // ──────────────────────────────────────────────
 // Provider-level settings (passed to createPImage)
@@ -122,6 +119,7 @@ export interface PImageCallOptions {
 
 // ──────────────────────────────────────────────
 // Internal API types — sourced from Pruna OpenAPI spec v0.3.0
+// Reference: https://docs.api.pruna.ai/
 // ──────────────────────────────────────────────
 
 /**
@@ -189,8 +187,8 @@ interface FileUploadResponse {
 // Main model class
 // ──────────────────────────────────────────────
 
-export class PImageModel implements ImageModelV1 {
-  readonly specificationVersion = 'v1';
+export class PImageModel implements ImageModelV2 {
+  readonly specificationVersion = 'v2';
   readonly modelId: PImageModelId;
 
   private readonly settings: PImageModelSettings;
@@ -231,11 +229,23 @@ export class PImageModel implements ImageModelV1 {
   // ── Private helpers ────────────────────────
 
   private get isEdit(): boolean {
-    return this.modelId.includes('edit');
+    const config = IMAGE_MODEL_CONFIGS[this.modelId as ImageModelId];
+    return config?.requiresImage ?? this.modelId.includes('edit'); // fallback for unknown models
   }
 
   private get isLora(): boolean {
-    return this.modelId.includes('lora');
+    const config = IMAGE_MODEL_CONFIGS[this.modelId as ImageModelId];
+    return config?.supportsLora ?? this.modelId.includes('lora'); // fallback for unknown models
+  }
+
+  private get imageField(): 'image' | 'images' | null {
+    const config = IMAGE_MODEL_CONFIGS[this.modelId as ImageModelId];
+    return config?.imageField ?? null;
+  }
+
+  private get imageFieldIsArray(): boolean {
+    const config = IMAGE_MODEL_CONFIGS[this.modelId as ImageModelId];
+    return config?.imageFieldIsArray ?? false;
   }
 
   private getRequestHeaders(): Record<string, string> {
@@ -264,7 +274,7 @@ export class PImageModel implements ImageModelV1 {
     mimeType: string,
   ): Promise<string> {
     const formData = new FormData();
-    const blob = new Blob([imageBuffer], { type: mimeType });
+    const blob = new Blob([imageBuffer as BlobPart], { type: mimeType });
     formData.append('content', blob, `upload.${mimeType.split('/')[1] ?? 'png'}`);
 
     const fetchFn = this.config.fetch ?? fetch;
@@ -350,33 +360,46 @@ export class PImageModel implements ImageModelV1 {
       : {};
 
     if (this.isEdit) {
-      // ── Edit schema (p-image-edit, p-image-edit-lora) ─────────────
-      // Valid fields: prompt, seed, turbo, images, aspect_ratio,
-      //               disable_safety_checker, + lora fields for edit-lora
-      // INVALID (causes 400): width, height, prompt_upsampling
+      // ── Edit/Image model schema ──────────────────────────────────────
+      // Different edit models use different image field names:
+      // - p-image-edit: requires 'images' array
+      // - qwen-image-edit-plus: requires 'image' single URL
+      // - flux-dev-lora: optional 'image' single URL
 
       const aspectRatio =
         po.edit_aspect_ratio ??
         (options.aspectRatio as PImageCallOptions['edit_aspect_ratio']) ??
         'match_input_image';
 
+      const editInput: Record<string, any> = {
+        ...baseInput,
+        aspect_ratio: aspectRatio,
+        ...(po.turbo !== undefined && { turbo: po.turbo }),
+        ...loraFields,
+      };
+
+      // Add image(s) field based on model configuration
+      if (this.imageField === 'images') {
+        editInput.images = resolvedImages;
+      } else if (this.imageField === 'image' && resolvedImages.length > 0) {
+        // Check if the image field expects an array or single string
+        editInput.image = this.imageFieldIsArray ? resolvedImages : resolvedImages[0];
+      } else if (!this.imageField && resolvedImages.length > 0) {
+        // Fallback for unknown models: treat as images array
+        editInput.images = resolvedImages;
+      }
+
       return {
-        input: {
-          ...baseInput,
-          aspect_ratio: aspectRatio,
-          images: resolvedImages,
-          ...(po.turbo !== undefined && { turbo: po.turbo }),
-          ...loraFields,
-        },
+        input: editInput as Record<string, unknown>,
       };
     } else {
-      // ── Generation schema (p-image, p-image-lora) ──────────────────
-      // Valid fields: prompt, seed, width, height, aspect_ratio,
-      //               prompt_upsampling, disable_safety_checker,
-      //               lora_weights, lora_scale, hf_api_token
-      // INVALID (causes 400): images, turbo
+      // ── Generation/Text-to-Image schema ──────────────────────────────
+      // Models: p-image, p-image-lora, flux-dev, wan-image-small, qwen-image, flux-dev-lora
+      // Some models support optional image field for img2img mode (qwen-image, flux-dev-lora)
+      // Valid fields vary by model; dimensions invalid for some models.
 
       // Derive dimensions: providerOptions > size string
+      // (only for models that support width/height)
       let width = po.width;
       let height = po.height;
 
@@ -388,7 +411,7 @@ export class PImageModel implements ImageModelV1 {
         }
       }
 
-      // aspect_ratio must be 'custom' when explicit dimensions are set
+      // aspect_ratio must be 'custom' when explicit dimensions are set (if supported)
       let aspectRatio: string =
         po.aspect_ratio ??
         (options.aspectRatio as string) ??
@@ -398,17 +421,25 @@ export class PImageModel implements ImageModelV1 {
         aspectRatio = 'custom';
       }
 
+      const generationInput: Record<string, any> = {
+        ...baseInput,
+        aspect_ratio: aspectRatio,
+        ...(width !== undefined && { width }),
+        ...(height !== undefined && { height }),
+        ...(po.prompt_upsampling !== undefined && {
+          prompt_upsampling: po.prompt_upsampling,
+        }),
+        ...loraFields,
+      };
+
+      // Add optional image field for models that support img2img
+      // (e.g., qwen-image, flux-dev-lora)
+      if (this.imageField === 'image' && resolvedImages.length > 0) {
+        generationInput.image = resolvedImages[0];
+      }
+
       return {
-        input: {
-          ...baseInput,
-          aspect_ratio: aspectRatio,
-          ...(width !== undefined && { width }),
-          ...(height !== undefined && { height }),
-          ...(po.prompt_upsampling !== undefined && {
-            prompt_upsampling: po.prompt_upsampling,
-          }),
-          ...loraFields,
-        },
+        input: generationInput as Record<string, unknown>,
       };
     }
   }
@@ -473,43 +504,54 @@ export class PImageModel implements ImageModelV1 {
 
   // ── Main doGenerate ────────────────────────
 
-  async doGenerate(options: ImageModelV1CallOptions): Promise<{
-    images: Array<{ base64: string }>;
-    warnings: ImageModelV1CallWarning[];
+  async doGenerate(options: ImageModelV2CallOptions): Promise<{
+    images: Array<string>;
+    warnings: ImageModelV2CallWarning[];
+    response: { timestamp: Date; modelId: string; headers: Record<string, string> | undefined };
   }> {
-    const warnings: ImageModelV1CallWarning[] = [];
+    const warnings: ImageModelV2CallWarning[] = [];
     const po = (options.providerOptions?.pimage ?? {}) as PImageCallOptions;
 
     // Warn on model/param mismatches
-    if (
-      !this.isEdit &&
-      (po.turbo !== undefined || po.edit_aspect_ratio !== undefined)
-    ) {
+    if (!this.isEdit && po.turbo !== undefined) {
       warnings.push({
-        type: 'unsupported-setting',
-        setting: 'turbo / edit_aspect_ratio',
-        details: `${this.modelId} is a generation model — turbo and edit_aspect_ratio are ignored`,
+        type: 'other',
+        message: `${this.modelId} is a generation model — turbo parameter is ignored`,
       });
     }
 
-    if (
-      this.isEdit &&
-      (po.width !== undefined ||
-        po.height !== undefined ||
-        po.prompt_upsampling !== undefined)
-    ) {
+    if (!this.isEdit && po.edit_aspect_ratio !== undefined) {
       warnings.push({
-        type: 'unsupported-setting',
-        setting: 'width / height / prompt_upsampling',
-        details: `${this.modelId} is an edit model — width, height, and prompt_upsampling are ignored`,
+        type: 'other',
+        message: `${this.modelId} is a generation model — edit_aspect_ratio parameter is ignored`,
+      });
+    }
+
+    if (this.isEdit && po.width !== undefined) {
+      warnings.push({
+        type: 'other',
+        message: `${this.modelId} is an edit model — width parameter is ignored`,
+      });
+    }
+
+    if (this.isEdit && po.height !== undefined) {
+      warnings.push({
+        type: 'other',
+        message: `${this.modelId} is an edit model — height parameter is ignored`,
+      });
+    }
+
+    if (this.isEdit && po.prompt_upsampling !== undefined) {
+      warnings.push({
+        type: 'other',
+        message: `${this.modelId} is an edit model — prompt_upsampling parameter is ignored`,
       });
     }
 
     if (this.isLora && !po.lora_weights) {
       warnings.push({
-        type: 'unsupported-setting',
-        setting: 'lora_weights',
-        details: `${this.modelId} requires lora_weights in providerOptions.pimage`,
+        type: 'other',
+        message: `${this.modelId} requires lora_weights in providerOptions.pimage`,
       });
     }
 
@@ -526,9 +568,8 @@ export class PImageModel implements ImageModelV1 {
 
     if (this.isEdit && resolvedImages.length === 0) {
       warnings.push({
-        type: 'unsupported-setting',
-        setting: 'prompt.images',
-        details: `${this.modelId} is an edit model but no input images were provided`,
+        type: 'other',
+        message: `${this.modelId} is an edit model but no input images were provided`,
       });
     }
 
@@ -536,7 +577,7 @@ export class PImageModel implements ImageModelV1 {
     const fetchFn = this.config.fetch ?? fetch;
 
     // Submit prediction — Try-Sync: true asks Pruna to wait up to 60s for completion
-    const response = await fetchFn(`${this.config.baseURL}/v1/predictions`, {
+    const predictionResponse = await fetchFn(`${this.config.baseURL}/v1/predictions`, {
       method: 'POST',
       headers: {
         ...this.getRequestHeaders(),
@@ -546,12 +587,18 @@ export class PImageModel implements ImageModelV1 {
       signal: options.abortSignal,
     });
 
-    if (!response.ok) {
-      const text = await response.text();
-      throw new Error(`Prediction request failed (${response.status}): ${text}`);
+    if (!predictionResponse.ok) {
+      const text = await predictionResponse.text();
+      throw new Error(`Prediction request failed (${predictionResponse.status}): ${text}`);
     }
 
-    const json = await response.json();
+    // Capture response headers for telemetry
+    const responseHeaders: Record<string, string> = {};
+    predictionResponse.headers?.forEach((value, key) => {
+      responseHeaders[key] = value;
+    });
+
+    const json = await predictionResponse.json();
 
     let generationUrl: string;
 
@@ -583,11 +630,29 @@ export class PImageModel implements ImageModelV1 {
     }
 
     const buffer = await imgResponse.arrayBuffer();
-    const base64 = Buffer.from(buffer).toString('base64');
+    // Convert to base64 in a portable way (works in Node.js, Edge Runtime, browsers)
+    const bytes = new Uint8Array(buffer);
+    let base64: string;
+    if (typeof Buffer !== 'undefined') {
+      // Node.js
+      base64 = Buffer.from(bytes).toString('base64');
+    } else {
+      // Edge Runtime, browsers
+      let str = '';
+      for (let i = 0; i < bytes.length; i++) {
+        str += String.fromCharCode(bytes[i]);
+      }
+      base64 = btoa(str);
+    }
 
     return {
-      images: [{ base64 }],
+      images: [base64],
       warnings,
+      response: {
+        timestamp: new Date(),
+        modelId: this.modelId,
+        headers: Object.keys(responseHeaders).length > 0 ? responseHeaders : undefined,
+      },
     };
   }
 }

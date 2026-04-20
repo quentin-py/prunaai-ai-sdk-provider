@@ -1,5 +1,5 @@
 {
-  "name": "@prunaai/ai-provider",
+  "name": "@prunaai/ai-sdk-provider",
   "version": "0.1.0",
   "description": "Vercel AI SDK custom provider for Pruna AI — image generation and image editing",
   "keywords": [
@@ -33,17 +33,22 @@
     "dev": "tsup src/index.ts --format cjs,esm --dts --watch",
     "typecheck": "tsc --noEmit",
     "lint": "eslint src --ext .ts",
-    "test": "vitest run",
+    "codegen": "node scripts/codegen.js",
+    "docgen": "node scripts/docgen.js",
+    "generate-all": "npm run codegen && npm run docgen",
+    "test": "vitest run --config vitest.config.ts",
+    "test:integration": "vitest run --config vitest.integration.config.ts",
     "prepublishOnly": "npm run build && npm run typecheck"
   },
   "peerDependencies": {
-    "@ai-sdk/provider": "^1.0.0",
+    "@ai-sdk/provider": "^3.0.0",
     "@ai-sdk/provider-utils": "^2.0.0"
   },
   "devDependencies": {
-    "@ai-sdk/provider": "^1.0.0",
+    "@ai-sdk/provider": "^3.0.8",
     "@ai-sdk/provider-utils": "^2.0.0",
     "@types/node": "^20.0.0",
+    "ai": "^3.0.0",
     "tsup": "^8.0.0",
     "typescript": "^5.0.0",
     "vitest": "^1.0.0"

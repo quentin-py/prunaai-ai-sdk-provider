@@ -1,0 +1,216 @@
+#!/usr/bin/env ts-node
+/**
+ * Code generator: derives model registry from prunatree P-API.json
+ * Usage: npm run codegen
+ */
+
+import * as fs from 'node:fs';
+import * as path from 'node:path';
+
+// ────────────────────────────────────────────────────────────────────
+// Config
+// ────────────────────────────────────────────────────────────────────
+
+const PROJECT_ROOT = path.resolve(__dirname, '..');
+const API_SPEC_PATH = path.join(
+  PROJECT_ROOT,
+  'prunatree/services/papi/app/openapi/schemas/P-API.json'
+);
+const OUTPUT_PATH = path.join(PROJECT_ROOT, 'src/generated/model-registry.ts');
+
+// ────────────────────────────────────────────────────────────────────
+// Types
+// ────────────────────────────────────────────────────────────────────
+
+interface OpenAPISchema {
+  type?: string;
+  required?: string[];
+  properties?: Record<string, any>;
+  items?: { type?: string };
+}
+
+interface ModelConfig {
+  type:
+    | 'text-to-image'
+    | 'image-edit'
+    | 'text-to-video'
+    | 'image-to-video'
+    | 'video-processing';
+  requiresImage: boolean;
+  imageField: 'image' | 'images' | null;
+  supportsLora: boolean;
+}
+
+// ────────────────────────────────────────────────────────────────────
+// Load and parse P-API.json
+// ────────────────────────────────────────────────────────────────────
+
+console.log(`📖 Reading P-API spec from: ${API_SPEC_PATH}`);
+
+if (!fs.existsSync(API_SPEC_PATH)) {
+  console.error(`❌ Error: P-API.json not found at ${API_SPEC_PATH}`);
+  process.exit(1);
+}
+
+const apiSpec = JSON.parse(fs.readFileSync(API_SPEC_PATH, 'utf-8'));
+const schemas = apiSpec.components?.schemas || {};
+
+// Find all models with an 'input' schema
+const modelSchemas: Record<string, OpenAPISchema> = {};
+for (const [name, schema] of Object.entries(schemas)) {
+  if ((schema as any).properties?.input?.type === 'object') {
+    modelSchemas[name] = (schema as any).properties.input;
+  }
+}
+
+console.log(`✅ Found ${Object.keys(modelSchemas).length} models with input schemas`);
+
+// ────────────────────────────────────────────────────────────────────
+// Classify each model
+// ────────────────────────────────────────────────────────────────────
+
+const imageModels: Record<string, ModelConfig> = {};
+const videoModels: Record<string, ModelConfig> = {};
+
+for (const [modelId, schema] of Object.entries(modelSchemas)) {
+  const required = schema.required || [];
+  const properties = schema.properties || {};
+
+  // Determine if it's a video model (check for video-specific fields)
+  const hasVideoFields =
+    'num_frames' in properties ||
+    'src_video' in properties ||
+    'frames_per_second' in properties ||
+    'src_mask' in properties;
+
+  // Determine image input requirements
+  let imageField: 'image' | 'images' | null = null;
+  let requiresImage = false;
+  let modelType: ModelConfig['type'] = 'text-to-image';
+
+  if ('images' in properties && required.includes('images')) {
+    imageField = 'images';
+    requiresImage = true;
+  } else if ('image' in properties && required.includes('image')) {
+    imageField = 'image';
+    requiresImage = true;
+  } else if ('image' in properties && !required.includes('image')) {
+    // Optional image (qwen-image in img2img mode)
+    imageField = 'image';
+    requiresImage = false;
+  }
+
+  // Determine LoRA support
+  const supportsLora = Object.keys(properties).some(
+    (key) => key.includes('lora') || key.includes('lora_weights')
+  );
+
+  // Classify model type
+  if (hasVideoFields) {
+    if ('image' in properties && required.includes('image')) {
+      modelType = 'image-to-video';
+    } else if ('src_video' in properties) {
+      modelType = 'video-processing';
+    } else {
+      modelType = 'text-to-video';
+    }
+    videoModels[modelId] = {
+      type: modelType,
+      requiresImage,
+      imageField,
+      supportsLora,
+    };
+  } else {
+    // Image model
+    if (requiresImage) {
+      modelType = 'image-edit';
+    } else {
+      modelType = 'text-to-image';
+    }
+    imageModels[modelId] = {
+      type: modelType,
+      requiresImage,
+      imageField,
+      supportsLora,
+    };
+  }
+
+  console.log(`  ${modelId}: ${modelType} ${supportsLora ? '(LoRA)' : ''}`);
+}
+
+console.log(`\n📦 Summary:`);
+console.log(`  Image models: ${Object.keys(imageModels).length}`);
+console.log(`  Video models: ${Object.keys(videoModels).length}`);
+
+// ────────────────────────────────────────────────────────────────────
+// Generate TypeScript output
+// ────────────────────────────────────────────────────────────────────
+
+const configEntry = (config: ModelConfig) =>
+  `{ type: '${config.type}', requiresImage: ${config.requiresImage}, imageField: ${config.imageField ? `'${config.imageField}'` : 'null'}, supportsLora: ${config.supportsLora} }`;
+
+const imageModelLines = Object.entries(imageModels)
+  .map(([modelId, config]) => `  '${modelId}': ${configEntry(config)},`)
+  .join('\n');
+
+const videoModelLines = Object.entries(videoModels)
+  .map(([modelId, config]) => `  '${modelId}': ${configEntry(config)},`)
+  .join('\n');
+
+const imageModelIdType = Object.keys(imageModels)
+  .map((id) => `'${id}'`)
+  .join(' | ');
+
+const videoModelIdType = Object.keys(videoModels)
+  .map((id) => `'${id}'`)
+  .join(' | ');
+
+const output = `/**
+ * AUTO-GENERATED — DO NOT EDIT MANUALLY
+ *
+ * This file is generated by scripts/codegen.ts from the P-API.json schema in prunatree.
+ * To update, run: npm run codegen
+ */
+
+export const IMAGE_MODEL_CONFIGS = {
+${imageModelLines}
+} as const;
+
+export type ImageModelId = ${imageModelIdType};
+
+export const VIDEO_MODEL_CONFIGS = {
+${videoModelLines}
+} as const;
+
+export type VideoModelId = ${videoModelIdType};
+
+// Combined registry for easy lookup
+export const MODEL_REGISTRY = {
+  ...IMAGE_MODEL_CONFIGS,
+  ...VIDEO_MODEL_CONFIGS,
+} as const;
+
+export type AnyModelId = ImageModelId | VideoModelId;
+
+// Type definitions for each config value
+export interface ModelConfig {
+  type:
+    | 'text-to-image'
+    | 'image-edit'
+    | 'text-to-video'
+    | 'image-to-video'
+    | 'video-processing';
+  requiresImage: boolean;
+  imageField: 'image' | 'images' | null;
+  supportsLora: boolean;
+}
+`;
+
+// Ensure output directory exists
+const outputDir = path.dirname(OUTPUT_PATH);
+if (!fs.existsSync(outputDir)) {
+  fs.mkdirSync(outputDir, { recursive: true });
+}
+
+fs.writeFileSync(OUTPUT_PATH, output, 'utf-8');
+console.log(`\n✨ Generated: ${OUTPUT_PATH}`);
